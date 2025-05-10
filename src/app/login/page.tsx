@@ -201,9 +201,6 @@ export default function LoginPage() {
                     </button>
                 </form>
             </div>
-            <footer style={{ marginTop: '3rem', color: '#718096', fontSize: '0.875rem' }}>
-                © {new Date().getFullYear()} BCP Solutions. All rights reserved.
-            </footer>
         </div>
     );
 } 
