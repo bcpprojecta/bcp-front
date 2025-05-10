@@ -192,8 +192,6 @@ export default function LiquidityRatiosPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-8">
-      {/* Page Title - Restored and styled */}
-      <h1 className="text-xl font-bold text-center mb-8">Liquidity Ratios</h1>
 
       {/* Main content white box for Data Input */}
       <div className="bg-white p-6 sm:p-8 shadow-xl rounded-lg max-w-[800px] mx-auto">
