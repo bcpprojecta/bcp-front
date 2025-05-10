@@ -9,7 +9,7 @@ interface User {
     email: string;
     user_metadata?: {
         role?: string;
-        [key: string]: any;
+        [key: string]: unknown;
     } | null;
 }
 

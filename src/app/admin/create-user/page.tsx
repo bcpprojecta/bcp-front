@@ -12,7 +12,7 @@ interface User {
     email: string;
     user_metadata?: {
         role?: string;
-        [key: string]: any;
+        [key: string]: unknown;
     } | null;
 }
 
@@ -104,8 +104,12 @@ export default function CreateUserPage() {
             setEmail(''); // Clear form
             setPassword('');
 
-        } catch (err: any) {
-            setError(err.message || 'An unexpected error occurred while creating the user.');
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message || 'An unexpected error occurred while creating the user.');
+            } else {
+                setError('An unexpected error occurred while creating the user.');
+            }
             console.error("Create user error:", err);
         } finally {
             setIsLoading(false);

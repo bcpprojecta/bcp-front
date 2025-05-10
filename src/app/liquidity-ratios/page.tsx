@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent, ClipboardEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
 // Define the structure for each liquidity item
@@ -33,19 +33,22 @@ const initialItems: LiquidityItem[] = [
 
 export default function LiquidityRatiosPage() {
   const router = useRouter();
-  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const [reportingDate, setReportingDate] = useState<string>('');
   const [items, setItems] = useState<LiquidityItem[]>(initialItems);
-  const [results, setResults] = useState<any>(null); // To store calculation results
+  const [results, setResults] = useState<{ 
+    reportingDate: string; 
+    statutoryRatio: string; 
+    coreRatio: string; 
+    totalRatio: string; 
+  } | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
       router.push('/login');
     } else {
-      setAccessToken(token);
       const fetchUser = async () => {
         try {
           const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -76,7 +79,6 @@ export default function LiquidityRatiosPage() {
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
     setCurrentUser(null);
-    setAccessToken(null);
     router.push('/login');
   };
 

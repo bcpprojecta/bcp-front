@@ -14,7 +14,8 @@ import {
     Tooltip,
     Legend,
     TimeScale, // For time series data on X-axis
-    Filler // Optional: for filling area under line
+    Filler, // Optional: for filling area under line
+    TooltipItem // Import TooltipItem
 } from 'chart.js';
 import 'chartjs-adapter-date-fns'; // Adapter for date/time scale
 
@@ -101,20 +102,20 @@ const styles = {
         padding: '0.75rem 1rem',
         color: '#4A5568',
         fontSize: '0.95rem',
-        textAlign: 'right' as 'right', // Align numbers to the right
+        textAlign: 'right' as const, // Align numbers to the right
     } as React.CSSProperties,
     tdDate: {
         borderBottom: '1px solid #edf2f7',
         padding: '0.75rem 1rem',
         color: '#4A5568',
         fontSize: '0.95rem',
-        textAlign: 'left' as 'left', 
+        textAlign: 'left' as const, 
     } as React.CSSProperties,
     errorMessage: {
         padding: '1rem',
         borderRadius: '6px',
         marginTop: '1rem',
-        textAlign: 'center' as 'center',
+        textAlign: 'center' as const,
         backgroundColor: '#FED7D7', 
         color: '#C53030',
     },
@@ -183,8 +184,12 @@ export default function ForecastResultsPage() {
                     if (data.length === 0) {
                         setError("No forecast data found for the selected currency. Please generate a forecast first.");
                     }
-                } catch (err: any) {
-                    setError(err.message || 'An error occurred while fetching results.');
+                } catch (err: unknown) {
+                    if (err instanceof Error) {
+                        setError(err.message || 'An error occurred while fetching results.');
+                    } else {
+                        setError('An unexpected error occurred while fetching results.');
+                    }
                     console.error(err);
                 } finally {
                     setIsLoading(false);
@@ -266,7 +271,7 @@ export default function ForecastResultsPage() {
                 mode: 'index' as const,
                 intersect: false,
                 callbacks: {
-                    label: function(context: any) {
+                    label: function(context: TooltipItem<'line'>) {
                         let label = context.dataset.label || '';
                         if (label) {
                             label += ': ';

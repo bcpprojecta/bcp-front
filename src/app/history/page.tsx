@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 
@@ -77,7 +77,7 @@ const styles = {
         padding: '1rem',
         borderRadius: '6px',
         marginBottom: '1rem',
-        textAlign: 'center' as 'center',
+        textAlign: 'center' as const,
         backgroundColor: '#FED7D7', 
         color: '#C53030',
     }
@@ -116,7 +116,7 @@ export default function HistoryPage() {
     const pathname = usePathname(); // Get current pathname
 
     // Renamed from fetchUserAndJobs to fetchUserAndFileHistory
-    const fetchUserAndFileHistory = async (token: string) => {
+    const fetchUserAndFileHistory = useCallback(async (token: string) => {
         setIsLoading(true);
         setError(null);
         try {
@@ -147,13 +147,17 @@ export default function HistoryPage() {
             // Sort by upload_timestamp (newest first)
             setFileHistory(historyData.sort((a,b) => new Date(b.upload_timestamp).getTime() - new Date(a.upload_timestamp).getTime())); 
             
-        } catch (err: any) {
-            setError(err.message || 'An error occurred.');
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message || 'An error occurred.');
+            } else {
+                setError('An unexpected error occurred.');
+            }
             console.error(err);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [router, setIsLoading, setError, setCurrentUser, setFileHistory]);
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -163,7 +167,7 @@ export default function HistoryPage() {
             setAccessToken(token);
             fetchUserAndFileHistory(token); // Call renamed function
         }
-    }, [router]);
+    }, [router, fetchUserAndFileHistory, setAccessToken]);
     
     const handleLogout = () => {
         localStorage.removeItem('accessToken');
@@ -213,7 +217,7 @@ export default function HistoryPage() {
                     fontSize: '0.9rem',
                     fontWeight: 500,
                     marginBottom: '1rem',
-                    float: 'right' as 'right',
+                    float: 'right' as const,
                 }}
                 onMouseOver={(e) => { if (!isLoading) e.currentTarget.style.backgroundColor = '#1E3A5F'; }}
                 onMouseOut={(e) => { if (!isLoading) e.currentTarget.style.backgroundColor = '#2A4365'; }}

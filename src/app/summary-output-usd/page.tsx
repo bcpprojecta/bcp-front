@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Fragment, useCallback } from 'react'; // Added Fragment and useCallback
+import { useState, useEffect, useCallback } from 'react'; // Removed Fragment
 import { useRouter } from 'next/navigation';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Import Recharts components
 
@@ -39,7 +39,6 @@ export default function UsdSummaryOutputPage() {
   const [isLoadingData, setIsLoadingData] = useState(true); // Keep true initially
   const [dataError, setDataError] = useState<string | null>(null);
   const ITEMS_PER_LOAD = 10;
-  const [totalItemsFromServer, setTotalItemsFromServer] = useState<number>(0);
   const [displayedItemsCount, setDisplayedItemsCount] = useState<number>(ITEMS_PER_LOAD);
 
   const fetchUser = useCallback(async (token: string | null) => {
@@ -59,9 +58,13 @@ export default function UsdSummaryOutputPage() {
       const userData: User = await userResponse.json();
       setCurrentUser(userData);
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching user:", error);
-      setDataError(error.message || 'Failed to load user data.');
+      if (error instanceof Error) {
+        setDataError(error.message || 'Failed to load user data.');
+      } else {
+        setDataError('An unknown error occurred while fetching user data.');
+      }
       setIsLoadingData(false);
       return false;
     }
@@ -89,7 +92,9 @@ export default function UsdSummaryOutputPage() {
           try {
             const errorData = await response.json();
             errorDetail = errorData.detail || errorDetail;
-          } catch (e) { /* Ignore */ }
+          } catch {
+            // Ignore if parsing errorData itself fails, original errorDetail is kept
+          }
           throw new Error(errorDetail);
         }
 
@@ -103,13 +108,16 @@ export default function UsdSummaryOutputPage() {
         }
       }
       setSummaryData(allFetchedItems);
-      setTotalItemsFromServer(allFetchedItems.length);
       setDisplayedItemsCount(Math.min(ITEMS_PER_LOAD, allFetchedItems.length));
       console.log("Finished fetching all summary data:", allFetchedItems.length, "items total.");
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching all summary data:", error);
-      setDataError(error.message || 'Failed to load all summary data.');
+      if (error instanceof Error) {
+        setDataError(error.message || 'Failed to load all summary data.');
+      } else {
+        setDataError('An unknown error occurred while fetching all summary data.');
+      }
     } finally {
       setIsLoadingData(false);
     }
@@ -204,7 +212,6 @@ export default function UsdSummaryOutputPage() {
     router.push('/login');
     setSummaryData([]);
     setDisplayedItemsCount(ITEMS_PER_LOAD);
-    setTotalItemsFromServer(0);
     setDataError(null);
     setIsLoadingData(true); 
   };
@@ -269,7 +276,7 @@ export default function UsdSummaryOutputPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis tickFormatter={(value: number) => new Intl.NumberFormat('en-US').format(value)} />
-                <Tooltip formatter={(value: number, name: string, props: any) => [new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value), name]} />
+                <Tooltip formatter={(value: number, name: string) => [new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value), name]} />
                 <Legend />
                 <Line type="monotone" dataKey="balance" name="Closing Balance (USD)" stroke="#82ca9d" activeDot={{ r: 8 }} dot={false} />
               </LineChart>

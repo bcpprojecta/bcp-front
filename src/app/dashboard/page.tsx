@@ -112,7 +112,7 @@ const styles = {
         padding: '1rem',
         borderRadius: '6px',
         marginBottom: '1rem',
-        textAlign: 'center' as 'center', // Added type assertion
+        textAlign: 'center' as const, // Changed to as const
     },
     successMessage: {
         backgroundColor: '#C6F6D5', // Green
@@ -137,7 +137,6 @@ export default function DashboardPage() {
     const [isUploading, setIsUploading] = useState(false);
 
     // States for single forecast generation
-    const [forecastCurrency, setForecastCurrency] = useState<'CAD' | 'USD'>('CAD'); // Now a state for currency selection
     const [anchorDate, setAnchorDate] = useState<string>(''); // YYYY-MM-DD
     const [forecastMessage, setForecastMessage] = useState<string | null>(null);
     const [forecastError, setForecastError] = useState<string | null>(null);
@@ -239,8 +238,12 @@ export default function DashboardPage() {
             setSelectedFile(null); // Clear selection
             const fileInput = document.getElementById('fileUpload') as HTMLInputElement;
             if(fileInput) fileInput.value = ''; // Reset file input
-        } catch (err: any) {
-            setFileUploadError(err.message || 'An unexpected error occurred during file upload.');
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setFileUploadError(err.message || 'An unexpected error occurred during file upload.');
+            } else {
+                setFileUploadError('An unexpected error occurred during file upload.');
+            }
             console.error("File upload error:", err);
         } finally {
             setIsUploading(false);
@@ -303,10 +306,14 @@ export default function DashboardPage() {
                 } else {
                     successCount++;
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 errorCount++;
                 console.error(`Exception during upload of ${file.name}:`, err);
                 // Optionally, collect individual file errors
+                if (err instanceof Error) {
+                    // Example: append to a list of errors displayed to the user
+                    // setBulkUploadError(prev => prev ? `${prev}\n${file.name}: ${err.message}` : `${file.name}: ${err.message}`);
+                }
             }
         }
 
@@ -362,8 +369,12 @@ export default function DashboardPage() {
             setForecastMessage(responseData.message || `Forecast generation started for ${payload.currency}.`);
             setAnchorDate('');
 
-        } catch (err: any) {
-            setForecastError(err.message || 'An unexpected error occurred while starting forecast.');
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setForecastError(err.message || 'An unexpected error occurred while starting forecast.');
+            } else {
+                setForecastError('An unexpected error occurred while starting forecast.');
+            }
             console.error("Forecast error:", err);
         } finally {
             setIsForecasting(false);

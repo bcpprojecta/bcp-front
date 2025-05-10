@@ -12,7 +12,7 @@ interface User {
     email: string;
     user_metadata?: { 
         role?: string; 
-        [key: string]: any; 
+        [key: string]: unknown;
     } | null; 
 }
 
@@ -84,8 +84,12 @@ export default function LoginPage() {
                  throw new Error('Token was not set, cannot fetch user details.');
             }
 
-        } catch (err: any) {
-            setError(err.message || 'An unexpected error occurred.');
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message || 'An unexpected error occurred.');
+            } else {
+                setError('An unexpected error occurred.');
+            }
             localStorage.removeItem('accessToken'); // Clear token on error
             console.error("Login/User Fetch error:", err);
         } finally {
