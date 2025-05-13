@@ -48,9 +48,9 @@ interface LiquidityRatioResult {
     id: string;
     user_id: string;
     reporting_date: string;
-    statutory_liquidity_ratio: number;
-    core_liquidity_ratio: number;
-    total_liquidity_ratio: number;
+    statutory_ratio: number;
+    core_ratio: number;
+    total_ratio: number;
     // Add input fields if they are part of the result schema and needed
     created_at: string; 
 }
@@ -473,9 +473,9 @@ export default function ReportPage() {
                         {liquidityResult ? (
                             <>
                                 <p><strong>Reporting Date:</strong> {liquidityResult.reporting_date}</p>
-                                <p><strong>Statutory Ratio:</strong> {liquidityResult.statutory_liquidity_ratio?.toFixed(2)}%</p>
-                                <p><strong>Core Ratio:</strong> {liquidityResult.core_liquidity_ratio?.toFixed(2)}%</p>
-                                <p><strong>Total Ratio:</strong> {liquidityResult.total_liquidity_ratio?.toFixed(2)}%</p>
+                                <p><strong>Statutory Ratio:</strong> {liquidityResult.statutory_ratio?.toFixed(2)}%</p>
+                                <p><strong>Core Ratio:</strong> {liquidityResult.core_ratio?.toFixed(2)}%</p>
+                                <p><strong>Total Ratio:</strong> {liquidityResult.total_ratio?.toFixed(2)}%</p>
                                 <p className="text-xs text-gray-500 pt-2">Calculated on: {new Date(liquidityResult.created_at).toLocaleString()}</p>
                             </>
                         ) : (
