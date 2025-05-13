@@ -149,7 +149,7 @@ export default function HistoryPage() {
             
         } catch (err: unknown) {
             if (err instanceof Error) {
-                setError(err.message || 'An error occurred.');
+            setError(err.message || 'An error occurred.');
             } else {
                 setError('An unexpected error occurred.');
             }

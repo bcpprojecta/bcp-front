@@ -240,7 +240,7 @@ export default function DashboardPage() {
             if(fileInput) fileInput.value = ''; // Reset file input
         } catch (err: unknown) {
             if (err instanceof Error) {
-                setFileUploadError(err.message || 'An unexpected error occurred during file upload.');
+            setFileUploadError(err.message || 'An unexpected error occurred during file upload.');
             } else {
                 setFileUploadError('An unexpected error occurred during file upload.');
             }
@@ -371,7 +371,7 @@ export default function DashboardPage() {
 
         } catch (err: unknown) {
             if (err instanceof Error) {
-                setForecastError(err.message || 'An unexpected error occurred while starting forecast.');
+            setForecastError(err.message || 'An unexpected error occurred while starting forecast.');
             } else {
                 setForecastError('An unexpected error occurred while starting forecast.');
             }

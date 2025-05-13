@@ -186,7 +186,7 @@ export default function ForecastResultsPage() {
                     }
                 } catch (err: unknown) {
                     if (err instanceof Error) {
-                        setError(err.message || 'An error occurred while fetching results.');
+                    setError(err.message || 'An error occurred while fetching results.');
                     } else {
                         setError('An unexpected error occurred while fetching results.');
                     }

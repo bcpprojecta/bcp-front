@@ -106,7 +106,7 @@ export default function CreateUserPage() {
 
         } catch (err: unknown) {
             if (err instanceof Error) {
-                setError(err.message || 'An unexpected error occurred while creating the user.');
+            setError(err.message || 'An unexpected error occurred while creating the user.');
             } else {
                 setError('An unexpected error occurred while creating the user.');
             }

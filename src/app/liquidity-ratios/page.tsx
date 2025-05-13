@@ -34,6 +34,7 @@ const initialItems: LiquidityItem[] = [
 export default function LiquidityRatiosPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null); // Added to store token
 
   const [reportingDate, setReportingDate] = useState<string>('');
   const [items, setItems] = useState<LiquidityItem[]>(initialItems);
@@ -43,18 +44,21 @@ export default function LiquidityRatiosPage() {
     coreRatio: string; 
     totalRatio: string; 
   } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // For loading state on submit
+  const [submitError, setSubmitError] = useState<string | null>(null); // For API errors
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
+    const tokenFromStorage = localStorage.getItem('accessToken');
+    if (!tokenFromStorage) {
       router.push('/login');
     } else {
+      setAccessToken(tokenFromStorage); // Store token
       const fetchUser = async () => {
         try {
           const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
           const response = await fetch(`${apiBaseUrl}/auth/users/me`, {
             headers: {
-              'Authorization': `Bearer ${token}`,
+              'Authorization': `Bearer ${tokenFromStorage}`,
             },
           });
           if (!response.ok) {
@@ -137,49 +141,95 @@ export default function LiquidityRatiosPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // Basic validation
+    setSubmitError(null); // Reset error on new submission
+
     if (!reportingDate) {
       alert('Please enter the Reporting Date.');
       return;
     }
-    const dataToSubmit = {
+    // Frontend calculation for immediate UI update (same as before)
+    const dataToSubmitForUI = {
       reportingDate,
       values: items.reduce((acc, item) => {
-        // Convert value to number, default to 0 if empty or invalid
         const numericValue = parseFloat(item.value);
         acc[item.code] = isNaN(numericValue) ? 0 : numericValue;
         return acc;
       }, {} as Record<string, number>),
     };
 
-    console.log('Submitting data:', dataToSubmit);
-
-    const values = dataToSubmit.values;
-
+    const values = dataToSubmitForUI.values;
     const statutory_liquidity_codes = ['1010', '1040', '1060', '1078', '1079'];
     const deposit_and_debt_codes = ['2180', '2050', '2255', '2295'];
     const core_cash_codes = ['1100'];
-    const borrowings_codes = ['2050']; // From Python: ['2050']
-    const member_deposits_codes = ['2180']; // From Python: ['2180']
+    const borrowings_codes = ['2050'];
+    const member_deposits_codes = ['2180'];
 
     const sumValues = (codes: string[]) => codes.reduce((sum, code) => sum + (values[code] || 0), 0);
-
     const liquidity_available = sumValues(statutory_liquidity_codes);
     const deposits_and_debt = sumValues(deposit_and_debt_codes);
     const total_cash_liquid = sumValues(core_cash_codes);
     const borrowings = sumValues(borrowings_codes);
     const member_deposits = sumValues(member_deposits_codes);
 
-    const statutory_ratio = deposits_and_debt !== 0 ? (liquidity_available / deposits_and_debt) : 0;
-    const core_ratio = member_deposits !== 0 ? ((total_cash_liquid - borrowings) / member_deposits) : 0;
-    const total_ratio = member_deposits !== 0 ? (total_cash_liquid / member_deposits) : 0;
+    const statutory_ratio_calc = deposits_and_debt !== 0 ? (liquidity_available / deposits_and_debt) : 0;
+    const core_ratio_calc = member_deposits !== 0 ? ((total_cash_liquid - borrowings) / member_deposits) : 0;
+    const total_ratio_calc = member_deposits !== 0 ? (total_cash_liquid / member_deposits) : 0;
 
     setResults({
-      reportingDate: dataToSubmit.reportingDate,
-      statutoryRatio: statutory_ratio !== 0 ? (statutory_ratio * 100).toFixed(2) + '%' : 'N/A',
-      coreRatio: core_ratio !== 0 ? (core_ratio * 100).toFixed(2) + '%' : 'N/A',
-      totalRatio: total_ratio !== 0 ? (total_ratio * 100).toFixed(2) + '%' : 'N/A',
+      reportingDate: dataToSubmitForUI.reportingDate,
+      statutoryRatio: statutory_ratio_calc !== 0 ? (statutory_ratio_calc * 100).toFixed(2) + '%' : 'N/A',
+      coreRatio: core_ratio_calc !== 0 ? (core_ratio_calc * 100).toFixed(2) + '%' : 'N/A',
+      totalRatio: total_ratio_calc !== 0 ? (total_ratio_calc * 100).toFixed(2) + '%' : 'N/A',
     });
+
+    // --- API Call to save data ---
+    setIsSubmitting(true);
+    const payloadForApi: { [key: string]: number | null | string } = {
+      reporting_date: reportingDate, // YYYY-MM-DD format from input type="date"
+    };
+    items.forEach(item => {
+      // Use item.code as key for API, matching Pydantic aliases
+      const numericValue = parseFloat(item.value);
+      payloadForApi[item.code] = isNaN(numericValue) ? null : numericValue; // Send null for empty/invalid so backend can handle default or skip
+    });
+
+    try {
+      if (!accessToken) {
+        throw new Error("Access token not available. Please login again.");
+      }
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiBaseUrl}/liquidity-ratios/`, { // Note the trailing slash if your FastAPI router needs it
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payloadForApi),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Failed to save data. Please try again." }));
+        throw new Error(errorData.detail || `HTTP error ${response.status}`);
+      }
+
+      const savedData = await response.json();
+      console.log('Successfully saved liquidity ratios:', savedData);
+      // Optionally, you can show a success message to the user
+      // alert('Ratios calculated and saved successfully!');
+
+    } catch (error) {
+      let errorMessage = "An unexpected error occurred while saving.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      console.error("Error saving liquidity ratios:", error);
+      setSubmitError(errorMessage);
+      // alert(`Error saving data: ${errorMessage}`); // Or display error more gracefully
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!currentUser) {
@@ -272,12 +322,21 @@ export default function LiquidityRatiosPage() {
             <button
               type="submit"
               className="inline-flex justify-center rounded-md py-3 px-5 text-base font-medium text-white bg-[#2A4365] hover:bg-[#223550] focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 transition-colors duration-200 ease-in-out"
+              disabled={isSubmitting} // Disable button while submitting
             >
-              Calculate Ratios
+              {isSubmitting ? 'Saving...' : 'Calculate Ratios'} 
             </button>
           </div>
         </form>
       </div>
+
+      {/* Display API submission error if any */}
+      {submitError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative max-w-[800px] mx-auto mt-4" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{submitError}</span>
+        </div>
+      )}
 
       {results && (
         <div className="bg-white p-6 sm:p-8 shadow-xl rounded-lg max-w-[800px] mx-auto mt-6">

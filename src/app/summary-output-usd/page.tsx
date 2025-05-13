@@ -61,7 +61,7 @@ export default function UsdSummaryOutputPage() {
     } catch (error: unknown) {
       console.error("Error fetching user:", error);
       if (error instanceof Error) {
-        setDataError(error.message || 'Failed to load user data.');
+      setDataError(error.message || 'Failed to load user data.');
       } else {
         setDataError('An unknown error occurred while fetching user data.');
       }
@@ -114,7 +114,7 @@ export default function UsdSummaryOutputPage() {
     } catch (error: unknown) {
       console.error("Error fetching all summary data:", error);
       if (error instanceof Error) {
-        setDataError(error.message || 'Failed to load all summary data.');
+      setDataError(error.message || 'Failed to load all summary data.');
       } else {
         setDataError('An unknown error occurred while fetching all summary data.');
       }
@@ -300,9 +300,6 @@ export default function UsdSummaryOutputPage() {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Reporting Date
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Currency
-                  </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Previous Balance
                   </th>
@@ -324,9 +321,6 @@ export default function UsdSummaryOutputPage() {
                       {(row["Reporting Date"])
                         ? new Date(row["Reporting Date"] + 'T00:00:00').toLocaleDateString('en-CA')
                         : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
-                      {row.currency || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 text-right">
                       {(row["Previous Balance"] !== undefined && row["Previous Balance"] !== null)

@@ -24,3 +24,34 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Print-specific styles */
+@media print {
+  /* Hide the sidebar when printing */
+  aside {
+    display: none !important;
+  }
+
+  /* Adjust the main content area to take full width when printing */
+  main {
+    margin-left: 0 !important;
+    width: 100% !important; /* Ensure it takes full width */
+    padding: 0 !important; /* Optional: Remove padding for print if desired */
+    /* Add any other print-specific adjustments for the main content here */
+  }
+
+  /* Optional: Hide download buttons or other non-content elements */
+  /* You might need to add a specific class to your download buttons container */
+  /* .no-print {
+    display: none !important;
+  } */
+
+  /* Ensure charts are not cut off - this can be tricky */
+  /* You might need to set explicit sizes or overflow properties for chart containers */
+  /* For example, if your chart containers have a class like .chart-container */
+  /* .chart-container {
+    width: 100% !important; 
+    height: auto !important; 
+    page-break-inside: avoid; 
+  } */
+}

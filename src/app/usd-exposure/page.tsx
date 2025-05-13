@@ -27,6 +27,7 @@ const initialItems: UsdExposureItem[] = [
 export default function UsdExposurePage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null); // Added to store token
 
   const [reportingDate, setReportingDate] = useState<string>('');
   const [items, setItems] = useState<UsdExposureItem[]>(initialItems);
@@ -34,18 +35,21 @@ export default function UsdExposurePage() {
     reportingDate: string; 
     usdExposure: string; 
   } | null>(null); // Changed any to a specific type
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // For loading state on submit
+  const [submitError, setSubmitError] = useState<string | null>(null); // For API errors
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
+    const tokenFromStorage = localStorage.getItem('accessToken');
+    if (!tokenFromStorage) {
       router.push('/login');
     } else {
+      setAccessToken(tokenFromStorage); // Store token
       const fetchUser = async () => {
         try {
           const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
           const response = await fetch(`${apiBaseUrl}/auth/users/me`, {
             headers: {
-              'Authorization': `Bearer ${token}`,
+              'Authorization': `Bearer ${tokenFromStorage}`,
             },
           });
           if (!response.ok) {
@@ -108,26 +112,77 @@ export default function UsdExposurePage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setSubmitError(null); // Reset error
+
     if (!reportingDate) {
       alert('Please enter the Reporting Date.');
       return;
     }
+    // Prepare data for UI and API
     const dataToSubmit = {
       reportingDate,
       values: items.reduce((acc, item) => {
         const numericValue = parseFloat(item.value);
-        acc[item.code] = isNaN(numericValue) ? 0 : numericValue;
+        acc[item.code] = isNaN(numericValue) ? 0 : numericValue; // Use code for internal logic
         return acc;
       }, {} as Record<string, number>),
     };
 
+    // Calculate for immediate UI update
     const { totalAssets, totalLiabilities, totalCapital } = dataToSubmit.values;
-    const usdExposure = (totalAssets || 0) + (totalLiabilities || 0) + (totalCapital || 0);
+    const usdExposureCalc = (totalAssets || 0) + (totalLiabilities || 0) + (totalCapital || 0);
 
     setResults({
       reportingDate: dataToSubmit.reportingDate,
-      usdExposure: usdExposure.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      usdExposure: usdExposureCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     });
+
+    // --- API Call to save data --- 
+    setIsSubmitting(true);
+    const payloadForApi: { [key: string]: string | number | null } = {
+        reporting_date: reportingDate,
+    };
+    items.forEach(item => {
+      // Use item.code (e.g., 'totalAssets') as key for API, matching Pydantic aliases
+      const numericValue = parseFloat(item.value);
+      payloadForApi[item.code] = isNaN(numericValue) ? null : numericValue;
+    });
+
+    try {
+      if (!accessToken) {
+        throw new Error("Access token not available. Please login again.");
+      }
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiBaseUrl}/usd-exposure/`, { // Note the trailing slash
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payloadForApi),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Failed to save data. Please try again." }));
+        throw new Error(errorData.detail || `HTTP error ${response.status}`);
+      }
+
+      const savedData = await response.json();
+      console.log('Successfully saved USD exposure:', savedData);
+      // alert('USD Exposure calculated and saved successfully!'); 
+
+    } catch (error) {
+      let errorMessage = "An unexpected error occurred while saving.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      console.error("Error saving USD exposure:", error);
+      setSubmitError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!currentUser) {
@@ -210,12 +265,21 @@ export default function UsdExposurePage() {
             <button
               type="submit"
               className="inline-flex justify-center rounded-md py-3 px-5 text-base font-medium text-white bg-[#2A4365] hover:bg-[#223550] focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 transition-colors duration-200 ease-in-out"
+              disabled={isSubmitting} // Disable button
             >
-              Calculate USD Exposure
+              {isSubmitting ? 'Saving...' : 'Calculate USD Exposure'}
             </button>
           </div>
         </form>
       </div>
+
+      {/* Display API submission error if any */}
+      {submitError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative max-w-[800px] mx-auto mt-4" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{submitError}</span>
+        </div>
+      )}
 
       {results && (
         <div className="bg-white p-6 sm:p-8 shadow-xl rounded-lg max-w-[800px] mx-auto mt-6">

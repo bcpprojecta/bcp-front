@@ -86,7 +86,7 @@ export default function LoginPage() {
 
         } catch (err: unknown) {
             if (err instanceof Error) {
-                setError(err.message || 'An unexpected error occurred.');
+            setError(err.message || 'An unexpected error occurred.');
             } else {
                 setError('An unexpected error occurred.');
             }
