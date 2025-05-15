@@ -102,7 +102,7 @@ export default function UsdExposurePage() {
   };
 
   const handleValueChange = (id: string, inputValueFromDisplay: string) => {
-    let rawNumericString = inputValueFromDisplay.replace(/,/g, ''); 
+    const rawNumericString = inputValueFromDisplay.replace(/,/g, ''); 
 
     if (
         rawNumericString === '' ||

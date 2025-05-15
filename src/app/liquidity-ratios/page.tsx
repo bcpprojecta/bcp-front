@@ -109,7 +109,7 @@ export default function LiquidityRatiosPage() {
   const handleValueChange = (id: string, inputValueFromDisplay: string) => {
     // inputValueFromDisplay is what user typed/sees in the formatted input
     // Convert it back to a raw numeric string to store in state
-    let rawNumericString = inputValueFromDisplay.replace(/,/g, ''); // Remove commas
+    const rawNumericString = inputValueFromDisplay.replace(/,/g, ''); // Remove commas
 
     // Validate and allow only valid characters for a number string
     // (e.g., digits, one decimal, optional leading minus)

@@ -130,7 +130,7 @@ export default function UsdSummaryOutputPage() {
             item.reportDateObj >= oneYearAgo && item.reportDateObj <= latestDate
           );
 
-          setSummaryData(filteredData.map(({ reportDateObj, ...rest }) => rest)); // Remove temporary reportDateObj before setting state
+          setSummaryData(filteredData.map(({ reportDateObj: _reportDateObj, ...rest }) => rest)); // Remove temporary reportDateObj before setting state
           setDisplayedItemsCount(Math.min(ITEMS_PER_LOAD, filteredData.length));
           console.log(`Fetched all USD data, then filtered for last 365 days. Displaying: ${filteredData.length} items.`);
         } else {
