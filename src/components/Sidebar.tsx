@@ -134,7 +134,7 @@ const Sidebar = ({ onToggle, initialOpen = true }: SidebarProps) => {
           {navItems.map((item) => (
             <SidebarLink 
                 key={item.href} 
-                href={item.href} 
+                  href={item.href}
                 icon={item.icon} 
                 isOpen={isOpen} // Pass isOpen state to SidebarLink
             >

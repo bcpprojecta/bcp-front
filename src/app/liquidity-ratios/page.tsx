@@ -31,6 +31,26 @@ const initialItems: LiquidityItem[] = [
   { id: 'code_2295', code: '2295', description: '', value: '' },
 ];
 
+// Helper function to format number string with commas for display
+const formatNumberWithCommas = (value: string | null | undefined): string => {
+    if (value === null || value === undefined || value.trim() === '') return '';
+    // Pass through intermediate input states like just a minus or a decimal point
+    if (value === '-' || value === '.' || value === '-.') return value;
+
+    const parts = value.split('.');
+    const integerPart = parts[0];
+    const decimalPart = parts.length > 1 ? '.' + parts.slice(1).join('') : '';
+
+    // Avoid formatting if integer part is empty or just a minus (e.g. for ".5" or "-.5")
+    // The actual value stored in state for ".5" would be ".5" or "0.5" based on handleValueChange
+    if (integerPart === '' || integerPart === '-') {
+        return value; 
+    }
+
+    const formattedIntegerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return formattedIntegerPart + decimalPart;
+};
+
 export default function LiquidityRatiosPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -86,12 +106,27 @@ export default function LiquidityRatiosPage() {
     router.push('/login');
   };
 
-  const handleValueChange = (id: string, newValue: string) => {
-    setItems((prevItems) =>
-      prevItems.map((item) =>
-        item.id === id ? { ...item, value: newValue } : item
-      )
-    );
+  const handleValueChange = (id: string, inputValueFromDisplay: string) => {
+    // inputValueFromDisplay is what user typed/sees in the formatted input
+    // Convert it back to a raw numeric string to store in state
+    let rawNumericString = inputValueFromDisplay.replace(/,/g, ''); // Remove commas
+
+    // Validate and allow only valid characters for a number string
+    // (e.g., digits, one decimal, optional leading minus)
+    // Regex allows: empty, "-", "123", "123.", ".5", "-123", "-123.", "-.5"
+    if (
+        rawNumericString === '' ||
+        rawNumericString === '-' ||
+        /^-?\d*\.?\d*$/.test(rawNumericString)
+    ) {
+        setItems(prevItems =>
+            prevItems.map(item =>
+                item.id === id ? { ...item, value: rawNumericString } : item
+            )
+        );
+    }
+    // If input is invalid after stripping commas (e.g., "1.2.3" or "abc"), 
+    // do nothing, keeping the previous valid state.
   };
 
   const handlePasteValues = (event: React.ClipboardEvent<HTMLInputElement>, itemId: string) => {
@@ -104,11 +139,13 @@ export default function LiquidityRatiosPage() {
       .split(/\r\n|\n|\r|\t/) // Split by newlines OR TABS
       .map(v => v.trim())     // Trim whitespace
       .map(v => v.replace(/,/g, '')) // Remove commas from numbers
-      .filter(v => v !== '' && !isNaN(parseFloat(v))); // Remove empty strings and ensure it's a number-like string
-    console.log("Processed pasted values (after split, trim, comma removal, NaN filter):", pastedValues);
+      // Filter for valid numeric strings, allowing empty for clearing or partials like "."
+      .filter(v => v === '' || v === '-' || /^-?\d*\.?\d*$/.test(v) ); 
+    console.log("Processed pasted values (after split, trim, comma removal, regex filter):", pastedValues);
 
-    if (pastedValues.length === 0) {
-      console.log("No valid values to paste after processing.");
+    if (pastedValues.length === 0 && pastedText.trim() !== '') { // Check if pastedText was not empty but resulted in no valid values
+      console.log("No valid values to paste after processing from non-empty input.");
+      // Optionally, provide feedback to the user here if needed.
       return;
     }
 
@@ -126,10 +163,9 @@ export default function LiquidityRatiosPage() {
       pastedValues.forEach((pastedValue, i) => {
         const targetIndex = startIndex + i;
         if (targetIndex < newItems.length) {
-          // Ensure the value is a plain number string for the input field
-          const cleanedValue = pastedValue; // Already cleaned by .map(v => v.replace(/,/g, ''))
-          console.log(`Attempting to set item at index ${targetIndex} (id: ${newItems[targetIndex].id}) to value: '${cleanedValue}'`);
-          newItems[targetIndex] = { ...newItems[targetIndex], value: cleanedValue };
+          // The pastedValue is already a cleaned, unformatted numeric string
+          console.log(`Attempting to set item at index ${targetIndex} (id: ${newItems[targetIndex].id}) to value: '${pastedValue}'`);
+          newItems[targetIndex] = { ...newItems[targetIndex], value: pastedValue };
         } else {
           console.log(`Skipping paste for index ${targetIndex}, out of bounds.`);
         }
@@ -287,32 +323,21 @@ export default function LiquidityRatiosPage() {
             </div>
             {items.map((item) => (
               <div key={item.id} className="grid grid-cols-1 md:grid-cols-[100px_300px_200px] gap-x-4 gap-y-1 items-center">
-                <label htmlFor={item.id} className="text-sm font-medium text-slate-700 md:hidden">
-                  {item.description} ({item.code})
+                <label
+                  htmlFor={item.id}
+                  className="block text-sm font-medium text-slate-700 mb-1 md:hidden" // Show on mobile
+                >
+                  {item.description || `Code ${item.code}`}
                 </label>
-                 <span className="text-sm font-medium text-slate-700 hidden md:block">{item.code}</span>
-                 <span className="text-sm text-slate-600 hidden md:block">{item.description}</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   id={item.id}
-                  step="any" // Allows decimals
-                  value={item.value}
+                  value={formatNumberWithCommas(item.value)}
                   onChange={(e) => handleValueChange(item.id, e.target.value)}
                   onPaste={(e) => handlePasteValues(e, item.id)}
-                  onWheel={(event) => {
-                    // Prevent mouse wheel from changing the number
-                    event.currentTarget.blur(); // Or (event.target as HTMLInputElement).blur();
-                    // As an alternative, for some browsers, you might need to preventDefault if blur isn't enough or preferred:
-                    // event.preventDefault(); 
-                  }}
-                  onKeyDown={(event) => {
-                    // Prevent ArrowUp and ArrowDown from changing the number
-                    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-                      event.preventDefault();
-                    }
-                  }}
+                  className="p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 sm:text-sm w-full text-slate-900 text-right tabular-nums"
                   placeholder="Enter value"
-                  className="block w-full rounded-md border-slate-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm p-2 text-slate-900"
                 />
               </div>
             ))}

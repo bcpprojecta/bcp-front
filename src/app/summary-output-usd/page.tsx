@@ -77,7 +77,7 @@ export default function UsdSummaryOutputPage() {
     let allFetchedItems: SummaryRow[] = [];
     let pageToFetch = 0;
     let moreDataExists = true;
-    console.log("Starting to fetch all summary data...");
+    console.log("Starting to fetch all summary data for USD...");
 
     try {
       while (moreDataExists) {
@@ -107,9 +107,43 @@ export default function UsdSummaryOutputPage() {
           pageToFetch++;
         }
       }
-      setSummaryData(allFetchedItems);
-      setDisplayedItemsCount(Math.min(ITEMS_PER_LOAD, allFetchedItems.length));
-      console.log("Finished fetching all summary data:", allFetchedItems.length, "items total.");
+      
+      // --- NEW: Filter for the last 365 days --- 
+      if (allFetchedItems.length > 0) {
+        const itemsWithDates = allFetchedItems
+          .map(item => {
+            const reportDateStr = item["Reporting Date"];
+            if (!reportDateStr) return null; // Skip items without a reporting date
+            return { ...item, reportDateObj: new Date(reportDateStr + 'T00:00:00Z') }; // Ensure UTC for date part comparison
+          })
+          .filter(item => item !== null) as (SummaryRow & { reportDateObj: Date })[];
+
+        if (itemsWithDates.length > 0) {
+          itemsWithDates.sort((a, b) => b.reportDateObj.getTime() - a.reportDateObj.getTime()); // Sort descending to find latest
+          
+          const latestDate = itemsWithDates[0].reportDateObj;
+          const oneYearAgo = new Date(latestDate);
+          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+          // oneYearAgo.setDate(oneYearAgo.getDate() + 1); // To make it exactly 365 days from latestDate inclusive of oneYearAgo date
+
+          const filteredData = itemsWithDates.filter(item => 
+            item.reportDateObj >= oneYearAgo && item.reportDateObj <= latestDate
+          );
+
+          setSummaryData(filteredData.map(({ reportDateObj, ...rest }) => rest)); // Remove temporary reportDateObj before setting state
+          setDisplayedItemsCount(Math.min(ITEMS_PER_LOAD, filteredData.length));
+          console.log(`Fetched all USD data, then filtered for last 365 days. Displaying: ${filteredData.length} items.`);
+        } else {
+          setSummaryData([]);
+          setDisplayedItemsCount(0);
+          console.log("No valid dates in fetched USD summary data to perform 365-day filter.");
+        }
+      } else {
+        setSummaryData([]);
+        setDisplayedItemsCount(0);
+        console.log("No USD summary data fetched.");
+      }
+      // --- END NEW FILTERING LOGIC ---
 
     } catch (error: unknown) {
       console.error("Error fetching all summary data:", error);

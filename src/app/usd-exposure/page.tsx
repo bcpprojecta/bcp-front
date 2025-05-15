@@ -17,12 +17,40 @@ interface User {
   email: string;
 }
 
+// Define the structure for the calculated results to be displayed
+interface CalculatedExposureDisplayResult {
+  reportingDate: string;
+  usdExposureValue: number; // Raw numeric value for logic
+  usdExposureDisplay: string; // Formatted string for display
+  usdExposureType: 'Short' | 'Long' | ''; // Text indication: Short, Long, or empty for zero
+  textColorClassName: string; // Tailwind CSS class for color
+}
+
 // Define the initial state for the form items
 const initialItems: UsdExposureItem[] = [
   { id: 'usd_total_assets', code: 'totalAssets', description: 'Total Assets', value: '' },
   { id: 'usd_total_liabilities', code: 'totalLiabilities', description: 'Total Liabilities', value: '' },
   { id: 'usd_total_capital', code: 'totalCapital', description: 'Total Capital', value: '' },
 ];
+
+// Helper function to format number string with commas for display
+const formatNumberWithCommas = (value: string | null | undefined): string => {
+    if (value === null || value === undefined || value.trim() === '') return '';
+    // Pass through intermediate input states like just a minus or a decimal point
+    if (value === '-' || value === '.' || value === '-.') return value;
+
+    const parts = value.split('.');
+    const integerPart = parts[0];
+    const decimalPart = parts.length > 1 ? '.' + parts.slice(1).join('') : '';
+
+    // Avoid formatting if integer part is empty or just a minus
+    if (integerPart === '' || integerPart === '-') {
+        return value; 
+    }
+
+    const formattedIntegerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return formattedIntegerPart + decimalPart;
+};
 
 export default function UsdExposurePage() {
   const router = useRouter();
@@ -31,10 +59,7 @@ export default function UsdExposurePage() {
 
   const [reportingDate, setReportingDate] = useState<string>('');
   const [items, setItems] = useState<UsdExposureItem[]>(initialItems);
-  const [results, setResults] = useState<{ 
-    reportingDate: string; 
-    usdExposure: string; 
-  } | null>(null); // Changed any to a specific type
+  const [results, setResults] = useState<CalculatedExposureDisplayResult | null>(null); 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false); // For loading state on submit
   const [submitError, setSubmitError] = useState<string | null>(null); // For API errors
 
@@ -76,12 +101,20 @@ export default function UsdExposurePage() {
     router.push('/login');
   };
 
-  const handleValueChange = (id: string, newValue: string) => {
-    setItems((prevItems) =>
-      prevItems.map((item) =>
-        item.id === id ? { ...item, value: newValue } : item
-      )
-    );
+  const handleValueChange = (id: string, inputValueFromDisplay: string) => {
+    let rawNumericString = inputValueFromDisplay.replace(/,/g, ''); 
+
+    if (
+        rawNumericString === '' ||
+        rawNumericString === '-' ||
+        /^-?\d*\.?\d*$/.test(rawNumericString)
+    ) {
+        setItems(prevItems =>
+            prevItems.map(item =>
+                item.id === id ? { ...item, value: rawNumericString } : item
+            )
+        );
+    }
   };
 
   const handlePasteValues = (event: ClipboardEvent<HTMLInputElement>, itemId: string) => {
@@ -91,9 +124,13 @@ export default function UsdExposurePage() {
       .split(/\r\n|\n|\r|\t/)
       .map(v => v.trim())
       .map(v => v.replace(/,/g, ''))
-      .filter(v => v !== '' && !isNaN(parseFloat(v)));
+      // Filter for valid numeric strings, allowing empty for clearing or partials like "."
+      .filter(v => v === '' || v === '-' || /^-?\d*\.?\d*$/.test(v));
 
-    if (pastedValues.length === 0) return;
+    if (pastedValues.length === 0 && pastedText.trim() !== '') { 
+        // No valid values from non-empty paste, do nothing or provide feedback
+        return;
+    }
 
     setItems(currentItems => {
       const newItems = [...currentItems];
@@ -130,11 +167,30 @@ export default function UsdExposurePage() {
 
     // Calculate for immediate UI update
     const { totalAssets, totalLiabilities, totalCapital } = dataToSubmit.values;
-    const usdExposureCalc = (totalAssets || 0) + (totalLiabilities || 0) + (totalCapital || 0);
+    // Apply Math.abs to each component before calculation
+    const absTotalAssets = Math.abs(totalAssets || 0);
+    const absTotalLiabilities = Math.abs(totalLiabilities || 0);
+    const absTotalCapital = Math.abs(totalCapital || 0);
+
+    const usdExposureCalc = absTotalAssets - absTotalLiabilities - absTotalCapital;
+    
+    let exposureType: 'Short' | 'Long' | '' = '';
+    let textColor = 'text-slate-800'; // Default color for zero
+
+    if (usdExposureCalc > 0) {
+      exposureType = 'Long';
+      textColor = 'text-green-600';
+    } else if (usdExposureCalc < 0) {
+      exposureType = 'Short';
+      textColor = 'text-red-600';
+    }
 
     setResults({
       reportingDate: dataToSubmit.reportingDate,
-      usdExposure: usdExposureCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      usdExposureValue: usdExposureCalc,
+      usdExposureDisplay: usdExposureCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      usdExposureType: exposureType,
+      textColorClassName: textColor,
     });
 
     // --- API Call to save data --- 
@@ -242,20 +298,14 @@ export default function UsdExposurePage() {
                   {item.description}
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   id={item.id}
-                  step="any"
-                  value={item.value}
+                  value={formatNumberWithCommas(item.value)}
                   onChange={(e) => handleValueChange(item.id, e.target.value)}
                   onPaste={(e) => handlePasteValues(e, item.id)}
-                  onWheel={(event) => { event.currentTarget.blur(); }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-                      event.preventDefault();
-                    }
-                  }}
+                  className="p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 sm:text-sm w-full text-slate-900 text-right tabular-nums"
                   placeholder="Enter value"
-                  className="block w-full rounded-md border-slate-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm p-2 text-slate-900"
                 />
               </div>
             ))}
@@ -291,7 +341,16 @@ export default function UsdExposurePage() {
           )}
           <div className="bg-slate-50 p-4 rounded-md shadow">
             <h3 className="text-sm font-medium text-slate-500">USD Exposure</h3>
-            <p className="mt-1 text-2xl font-semibold text-sky-600">{results.usdExposure}</p>
+            <div className="mt-1 flex items-baseline">
+              <p className={`text-2xl font-semibold ${results.textColorClassName}`}>
+                {results.usdExposureDisplay}
+              </p>
+              {results.usdExposureType && (
+                <span className={`ml-2 text-sm font-medium ${results.textColorClassName}`}>
+                  ({results.usdExposureType})
+                </span>
+              )}
+            </div>
           </div>
         </div>
       )}

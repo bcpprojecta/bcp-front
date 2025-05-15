@@ -136,6 +136,9 @@ export default function DashboardPage() {
     const [fileUploadError, setFileUploadError] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
 
+    // Add state for daily operation currency
+    const [dailyOperationCurrency, setDailyOperationCurrency] = useState<'CAD' | 'USD' | ''>('');
+
     // States for single forecast generation
     const [anchorDate, setAnchorDate] = useState<string>(''); // YYYY-MM-DD
     const [forecastMessage, setForecastMessage] = useState<string | null>(null);
@@ -208,16 +211,25 @@ export default function DashboardPage() {
         event.preventDefault();
         if (!selectedFile || !accessToken) return;
 
+        if (!dailyOperationCurrency) {
+            setFileUploadError("Please select a currency (CAD or USD) for the daily upload.");
+            return;
+        }
+
         setIsUploading(true);
         setFileUploadMessage(null);
         setFileUploadError(null);
 
         const formData = new FormData();
         formData.append('file', selectedFile);
-        // Add file_type and currency for daily .041 uploads
-        // Assuming daily uploads are primarily for CAD and contain both summary and raw transactions
-        formData.append('file_type', 'CAD_SUMMARY_RAW'); 
-        formData.append('currency', 'CAD');
+        
+        if (dailyOperationCurrency === 'CAD') {
+            formData.append('file_type', 'CAD_SUMMARY_RAW'); 
+            formData.append('currency', 'CAD');
+        } else if (dailyOperationCurrency === 'USD') {
+            formData.append('file_type', 'USD_SUMMARY_RAW');
+            formData.append('currency', 'USD');
+        }
 
         try {
             const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
@@ -234,8 +246,9 @@ export default function DashboardPage() {
             if (!response.ok) {
                 throw new Error(data.detail || `File upload failed with status: ${response.status}`);
             }
-            setFileUploadMessage(`File '${selectedFile.name}' uploaded successfully. Processing queued. File ID: ${data.file_id}`);
+            setFileUploadMessage(`File '${selectedFile.name}' (${dailyOperationCurrency}) uploaded successfully. Processing queued. File ID: ${data.file_id}`);
             setSelectedFile(null); // Clear selection
+            setDailyOperationCurrency(''); // Reset currency dropdown
             const fileInput = document.getElementById('fileUpload') as HTMLInputElement;
             if(fileInput) fileInput.value = ''; // Reset file input
         } catch (err: unknown) {
@@ -244,7 +257,7 @@ export default function DashboardPage() {
             } else {
                 setFileUploadError('An unexpected error occurred during file upload.');
             }
-            console.error("File upload error:", err);
+            console.error("Daily File upload error:", err);
         } finally {
             setIsUploading(false);
         }
@@ -409,7 +422,7 @@ export default function DashboardPage() {
             {/* Initial Bulk Upload Section */}
             <div style={styles.section}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer'}} onClick={() => setIsBulkUploadSectionOpen(!isBulkUploadSectionOpen)}>
-                    <h2 style={styles.sectionTitle}>Initial Bulk Upload (Historical .041 Files)</h2>
+                    <h2 style={styles.sectionTitle}>Initial Bulk Upload (Historical AIBC,AIBU Files)</h2>
                     <button style={{background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#2A4365'}}>
                         {isBulkUploadSectionOpen ? '\u25B2' : '\u25BC'} {/* Up arrow / Down arrow */}
                     </button>
@@ -418,7 +431,7 @@ export default function DashboardPage() {
                 {isBulkUploadSectionOpen && (
                     <>
                         <p style={{fontSize: '0.9rem', color: '#4A5568', marginBottom: '1rem'}}>
-                            Upload your historical .041 transaction files (e.g., for the past 2 years) to populate initial data for forecasting.
+                            Upload your historical AIBC,AIBU transaction files (e.g., for the past 2 years) to populate initial data for forecasting.
                         </p>
                         <form onSubmit={handleBulkFileUpload}>
                             <div style={styles.formGroup}>
@@ -436,7 +449,7 @@ export default function DashboardPage() {
                                 </select>
                             </div>
                             <div style={styles.formGroup}>
-                                <label htmlFor="bulkFileUpload" style={styles.label}>Select .041 Files (Multiple):</label>
+                                <label htmlFor="bulkFileUpload" style={styles.label}>Select AIBC,AIBU Files (Multiple):</label>
                                 <input
                                     type="file"
                                     id="bulkFileUpload"
@@ -465,14 +478,28 @@ export default function DashboardPage() {
                 )}
             </div>
 
-            {/* Regular File Upload Section - Now Combined with Forecast */}
+            {/* Modified Daily File Upload Section - Combined CAD/USD with Dropdown */}
             <div style={styles.section}>
-                <h2 style={styles.sectionTitle}>Daily Operations: CAD File Upload &amp; Forecast</h2>
+                <h2 style={styles.sectionTitle}>Daily File Upload</h2> 
                 
-                {/* Upload Daily Transaction File Form */}
-                <form onSubmit={handleFileUpload} style={{ marginBottom: '2rem' }}> {/* Added margin for spacing */}
+                <form onSubmit={handleFileUpload} style={{ marginBottom: '2rem' }}>
                     <div style={styles.formGroup}>
-                        <label htmlFor="fileUpload" style={styles.label}>Select .041 or .txt File:</label>
+                        <label htmlFor="dailyOperationCurrency" style={styles.label}>Select Currency:</label>
+                        <select 
+                            id="dailyOperationCurrency" 
+                            value={dailyOperationCurrency} 
+                            onChange={(e) => setDailyOperationCurrency(e.target.value as 'CAD' | 'USD' | '')} 
+                            required 
+                            style={styles.select}
+                        >
+                            <option value="" disabled>Select Currency</option>
+                            <option value="CAD">CAD</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
+
+                    <div style={styles.formGroup}>
+                        <label htmlFor="fileUpload" style={styles.label}>Select AIBC or AIBU File:</label>
                         <input
                             type="file"
                             id="fileUpload"
@@ -480,23 +507,24 @@ export default function DashboardPage() {
                             accept=".041,.txt"
                             required
                             style={styles.input}
+                            disabled={!dailyOperationCurrency} // Optionally disable if no currency selected
                         />
                     </div>
                     <button
                         type="submit"
-                        disabled={!selectedFile || isUploading}
+                        disabled={!selectedFile || isUploading || !dailyOperationCurrency}
                         style={{
                             ...styles.button,
-                            ...( (!selectedFile || isUploading) ? styles.buttonDisabled : {})
+                            ...( (!selectedFile || isUploading || !dailyOperationCurrency) ? styles.buttonDisabled : {})
                         }}
                     >
-                        {isUploading ? 'Uploading...' : 'Upload File'}
+                        {isUploading ? 'Uploading...' : 'Upload Daily File'}
                     </button>
                     {fileUploadMessage && <p style={{...styles.message, ...styles.successMessage, marginTop: '1rem'}}>{fileUploadMessage}</p>}
                     {fileUploadError && <p style={{...styles.message, ...styles.errorMessage, marginTop: '1rem'}}>{fileUploadError}</p>}
                 </form>
 
-                {/* Start New Forecast Form - Now in the same section */}
+                {/* Start New Forecast Form - Now in the same section. This is still CAD specific */}
                 <h2 style={styles.sectionTitle}>Start New CAD Forecast</h2> {/* Kept a sub-heading for clarity */}
                 <form onSubmit={handleStartForecast}>
                     <div style={styles.formGroup}>

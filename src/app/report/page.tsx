@@ -254,57 +254,68 @@ export default function ReportPage() {
     // ADD useEffect to process usdSummaryData for Recharts
     useEffect(() => {
         if (usdSummaryData.length === 0) {
-            // console.log("USD Summary Data is empty, setting Rechart data to empty.");
             setUsdRechartData([]);
             return;
         }
-        // console.log("Processing USD Summary Data for Recharts:", usdSummaryData);
+        
         const dataWithDates = usdSummaryData
             .map(item => {
                 const reportDate = item["Reporting Date"]; 
                 const closingBalance = item["Closing Balance"]; 
                 
                 if (!reportDate || typeof reportDate !== 'string' || typeof closingBalance !== 'number') {
-                    console.warn("Skipping item due to missing/invalid date or non-numeric balance:", item);
                     return null; 
                 }
                 try {
-                    const dateObj = new Date(reportDate + 'T00:00:00Z');
+                    const dateObj = new Date(reportDate + 'T00:00:00Z'); // Ensure UTC for date part comparison
                     if (isNaN(dateObj.getTime())) {
-                        console.warn("Invalid date string encountered:", reportDate, "for item:", item);
                         return null; 
                     }
                     return {
                         reportDateObj: dateObj,
                         balanceValue: closingBalance,
+                        originalReportDate: reportDate // Keep original string date for chart data key
                     };
                 } catch (e) {
                     console.error("Error parsing date:", reportDate, e, "for item:", item);
                     return null;
                 }
             })
-            .filter(item => item !== null) as ({ reportDateObj: Date; balanceValue: number })[];
-
-        // *** ADDED LOG TO CHECK LENGTH AFTER FILTER ***
-        console.log(`[Debug] usdSummaryData length: ${usdSummaryData.length}, dataWithDates length after filter: ${dataWithDates.length}`);
+            .filter(item => item !== null) as ({ reportDateObj: Date; balanceValue: number; originalReportDate: string })[];
 
         if (dataWithDates.length === 0) {
-            console.log("[Debug] Setting Rechart data to empty because dataWithDates is empty after filtering.");
             setUsdRechartData([]);
             return;
         }
 
-        dataWithDates.sort((a, b) => a.reportDateObj.getTime() - b.reportDateObj.getTime());
+        // Sort by date descending to find the latest date for the 365-day window anchor
+        const sortedByDateDesc = [...dataWithDates].sort((a, b) => b.reportDateObj.getTime() - a.reportDateObj.getTime());
+        
+        const latestDate = sortedByDateDesc[0].reportDateObj;
+        const oneYearAgo = new Date(latestDate);
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        // oneYearAgo.setDate(oneYearAgo.getDate() + 1); // Optional: to make it exactly 365 days from latestDate, inclusive
 
-        const newChartData = dataWithDates.map(item => ({
-            date: item.reportDateObj.toLocaleDateString('en-CA'), 
+        // Filter for the last 365 days
+        const filteredForLastYear = sortedByDateDesc.filter(item => 
+            item.reportDateObj >= oneYearAgo && item.reportDateObj <= latestDate
+        );
+
+        if (filteredForLastYear.length === 0) {
+            setUsdRechartData([]);
+            return;
+        }
+
+        // Sort again by date ascending for the chart display
+        const finalChartDataItems = [...filteredForLastYear].sort((a, b) => a.reportDateObj.getTime() - b.reportDateObj.getTime());
+
+        const newChartData = finalChartDataItems.map(item => ({
+            date: item.originalReportDate, // Use the original string date (YYYY-MM-DD) for Recharts dataKey
             balance: item.balanceValue,
         }));
         
-        console.log("[Debug] Calling setUsdRechartData with (first 5 items):"); // Log before set
-        console.log(newChartData.slice(0, 5)); 
+        console.log("[ReportPage] Processed USD Summary for Recharts (last 365 days). Items:", newChartData.length);
         setUsdRechartData(newChartData);
-        console.log("[Debug] setUsdRechartData has been called."); // Log after set
 
     }, [usdSummaryData]);
 
@@ -429,9 +440,80 @@ export default function ReportPage() {
                             {isLoading ? 'Loading Chart...' : 'No forecast data available to display chart.'}
                         </div>
                     )}
+                </div> {/* End of CAD Chart div */}
+
+                {/* === INSERTED USD SUMMARY CHART SECTION === */}
+                <section className="mb-8 p-4 bg-white rounded shadow">
+                    <h2 className="text-xl font-semibold text-gray-700 mb-4">USD Summary Chart</h2>
+                    <div className="h-80 bg-gray-100 rounded p-2"> 
+                        {/* {console.log("[Render] usdRechartData for chart condition:", usdRechartData)} */}
+                        {usdRechartData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                 <LineChart
+                                    data={usdRechartData}
+                                    margin={{
+                                    top: 5, right: 30, left: 20, bottom: 5,
+                                    }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis tickFormatter={(value: number) => new Intl.NumberFormat('en-US').format(value)} />
+                                    <RechartsTooltip formatter={(value: number) => [new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value), 'Closing Balance (USD)']} />
+                                    <RechartsLegend />
+                                    <RechartsLine type="monotone" dataKey="balance" name="Closing Balance (USD)" stroke="#82ca9d" activeDot={{ r: 8 }} dot={false} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-500">
+                                {/* {console.log("[Render] No data for chart, isLoading:", isLoading)} */}
+                                {isLoading ? 'Loading Chart...' : 'No USD summary data available to display chart.'}
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                {/* === INSERTED LIQUIDITY & EXPOSURE GRID === */}
+                <div className="grid md:grid-cols-2 gap-8 mb-8">
+                    <section className="p-4 bg-white rounded shadow">
+                        <h2 className="text-xl font-semibold text-gray-700 mb-4">Latest Liquidity Ratio</h2>
+                        <div className="text-gray-700 space-y-2">
+                            {liquidityResult ? (
+                                <>
+                                    <p><strong>Reporting Date:</strong> {liquidityResult.reporting_date}</p>
+                                    <p><strong>Statutory Ratio:</strong> {liquidityResult.statutory_ratio?.toFixed(2)}%</p>
+                                    <p><strong>Core Ratio:</strong> {liquidityResult.core_ratio?.toFixed(2)}%</p>
+                                    <p><strong>Total Ratio:</strong> {liquidityResult.total_ratio?.toFixed(2)}%</p>
+                                    <p className="text-xs text-gray-500 pt-2">Calculated on: {new Date(liquidityResult.created_at).toLocaleString()}</p>
+                                </>
+                            ) : (
+                                <p className="text-gray-500">
+                                    {isLoading ? 'Loading...' : 'No liquidity ratio data found.'}
+                                </p>
+                            )}
+                        </div>
+                    </section>
+
+                    <section className="p-4 bg-white rounded shadow">
+                        <h2 className="text-xl font-semibold text-gray-700 mb-4">Latest USD Exposure</h2>
+                        <div className="text-gray-700 space-y-2">
+                            {exposureResult ? (
+                                 <>
+                                    <p><strong>Reporting Date:</strong> {exposureResult.reporting_date}</p>
+                                    <p><strong>Net USD Exposure:</strong> {formatCurrency(exposureResult.usd_exposure, 'USD')}</p>
+                                    <p className="text-xs text-gray-500 pt-2">Calculated on: {new Date(exposureResult.created_at).toLocaleString()}</p>
+                                 </>
+                            ) : (
+                                <p className="text-gray-500">
+                                    {isLoading ? 'Loading...' : 'No USD exposure data found.'}
+                                </p>
+                            )}
+                        </div>
+                    </section>
                 </div>
+
                 {/* Table */} 
                 <div className="overflow-x-auto">
+                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Forecast Data (CAD)</h2>
                     <table className="min-w-full bg-white">
                         <thead className="bg-gray-100">
                             <tr>
@@ -463,78 +545,7 @@ export default function ReportPage() {
                         </tbody>
                     </table>
                 </div>
-            </section>
-
-            {/* Section 2 & 3: Liquidity Ratio & USD Exposure */}
-             <div className="grid md:grid-cols-2 gap-8 mb-8">
-                <section className="p-4 bg-white rounded shadow">
-                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Latest Liquidity Ratio</h2>
-                    <div className="text-gray-700 space-y-2">
-                        {liquidityResult ? (
-                            <>
-                                <p><strong>Reporting Date:</strong> {liquidityResult.reporting_date}</p>
-                                <p><strong>Statutory Ratio:</strong> {liquidityResult.statutory_ratio?.toFixed(2)}%</p>
-                                <p><strong>Core Ratio:</strong> {liquidityResult.core_ratio?.toFixed(2)}%</p>
-                                <p><strong>Total Ratio:</strong> {liquidityResult.total_ratio?.toFixed(2)}%</p>
-                                <p className="text-xs text-gray-500 pt-2">Calculated on: {new Date(liquidityResult.created_at).toLocaleString()}</p>
-                            </>
-                        ) : (
-                            <p className="text-gray-500">
-                                {isLoading ? 'Loading...' : 'No liquidity ratio data found.'}
-                            </p>
-                        )}
-                    </div>
-                </section>
-
-                <section className="p-4 bg-white rounded shadow">
-                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Latest USD Exposure</h2>
-                    <div className="text-gray-700 space-y-2">
-                        {exposureResult ? (
-                             <>
-                                <p><strong>Reporting Date:</strong> {exposureResult.reporting_date}</p>
-                                <p><strong>Net USD Exposure:</strong> {formatCurrency(exposureResult.usd_exposure, 'USD')}</p>
-                                <p className="text-xs text-gray-500 pt-2">Calculated on: {new Date(exposureResult.created_at).toLocaleString()}</p>
-                             </>
-                        ) : (
-                            <p className="text-gray-500">
-                                {isLoading ? 'Loading...' : 'No USD exposure data found.'}
-                            </p>
-                        )}
-                    </div>
-                </section>
-             </div>
-
-            {/* Section 4: USD Summary Chart - NOW USING RECHARTS */}
-            <section className="mb-8 p-4 bg-white rounded shadow">
-                <h2 className="text-xl font-semibold text-gray-700 mb-4">USD Summary Chart</h2>
-                <div className="h-80 bg-gray-100 rounded p-2"> 
-                    {/* ADD console log here to see what usdRechartData is right before this conditional render */}
-                    {/* {console.log("[Render] usdRechartData for chart condition:", usdRechartData)} */}
-                    {usdRechartData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                             <LineChart
-                                data={usdRechartData}
-                                margin={{
-                                top: 5, right: 30, left: 20, bottom: 5,
-                                }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="date" />
-                                <YAxis tickFormatter={(value: number) => new Intl.NumberFormat('en-US').format(value)} />
-                                <RechartsTooltip formatter={(value: number) => [new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value), 'Closing Balance (USD)']} />
-                                <RechartsLegend />
-                                <RechartsLine type="monotone" dataKey="balance" name="Closing Balance (USD)" stroke="#82ca9d" activeDot={{ r: 8 }} dot={false} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-gray-500">
-                            {/* {console.log("[Render] No data for chart, isLoading:", isLoading)} */}
-                            {isLoading ? 'Loading Chart...' : 'No USD summary data available to display chart.'}
-                        </div>
-                    )}
-                </div>
-            </section>
-
+            </section> {/* End of the main Forecast section that now includes the others */}
         </div>
     );
 } 
