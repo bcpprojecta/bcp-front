@@ -285,18 +285,18 @@ export default function UsdExposurePage() {
           </div>
 
           <div className="space-y-2 pt-4">
-            <div className="grid grid-cols-[100px_1fr_200px] md:grid-cols-[auto_1fr_200px] gap-x-4 items-center pb-2 border-b border-slate-200 ">
-              {/* Adjusted grid for Name, Value, Date structure requested for display if needed, but using Description, Value as per original */}
+            <div className="grid grid-cols-[1fr_200px] gap-x-4 items-center pb-2 border-b border-slate-200">
               {/* For USD Exposure, we only have Description and Value for input */}
-              <span className="font-semibold text-slate-700 text-sm hidden md:block">Item</span>
-              <span className="font-semibold text-slate-700 text-sm hidden md:block"></span> {/* Placeholder for potential Name column */}
-              <span className="font-semibold text-slate-700 text-sm text-right md:text-left">Value</span>
+              <span className="font-semibold text-slate-700 text-sm">Item</span>
+              {/* <span className="font-semibold text-slate-700 text-sm hidden md:block"></span> Placeholder for potential Name column */} {/* Removing placeholder as it's 2-col now */} 
+              <span className="font-semibold text-slate-700 text-sm text-left">Value</span> {/* Adjusted text-alignment for header consistency if items are left aligned */} 
             </div>
             {items.map((item) => (
-              <div key={item.id} className="grid grid-cols-1 md:grid-cols-[1fr_200px] gap-x-4 gap-y-1 items-center">
-                <label htmlFor={item.id} className="text-sm font-medium text-slate-700">
-                  {item.description}
-                </label>
+              <div key={item.id} className="grid grid-cols-[1fr_200px] gap-x-4 items-center py-2 border-b border-slate-100">
+                {/* Column 1: Item Description */}
+                <span className="text-sm text-slate-700">{item.description}</span>
+                
+                {/* Column 2: Value Input */}
                 <input
                   type="text"
                   inputMode="decimal"
@@ -304,7 +304,7 @@ export default function UsdExposurePage() {
                   value={formatNumberWithCommas(item.value)}
                   onChange={(e) => handleValueChange(item.id, e.target.value)}
                   onPaste={(e) => handlePasteValues(e, item.id)}
-                  className="p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 sm:text-sm w-full text-slate-900 text-right tabular-nums"
+                  className="p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-900 text-right tabular-nums w-full"
                   placeholder="Enter value"
                 />
               </div>

@@ -27,8 +27,8 @@ const initialItems: LiquidityItem[] = [
   { id: 'code_1100', code: '1100', description: 'Total Assets', value: '' },
   { id: 'code_2050', code: '2050', description: 'Borrowings', value: '' },
   { id: 'code_2180', code: '2180', description: 'Member Deposits', value: '' },
-  { id: 'code_2255', code: '2255', description: '', value: '' },
-  { id: 'code_2295', code: '2295', description: '', value: '' },
+  { id: 'code_2255', code: '2255', description: 'Subordinated Debt', value: '' },
+  { id: 'code_2295', code: '2295', description: 'Secondary Capital', value: '' },
 ];
 
 // Helper function to format number string with commas for display
@@ -316,19 +316,20 @@ export default function LiquidityRatiosPage() {
 
           <div className="space-y-2 pt-4">
             {/* Header for the input list */}
-            <div className="grid grid-cols-[100px_300px_200px] gap-x-4 items-center pb-2 border-b border-slate-200 md:grid">
+            <div className="grid grid-cols-[100px_300px_200px] gap-x-4 items-center pb-2 border-b border-slate-200">
               <span className="font-semibold text-slate-700 text-sm">Code</span>
               <span className="font-semibold text-slate-700 text-sm">Description</span>
               <span className="font-semibold text-slate-700 text-sm">Value</span>
             </div>
             {items.map((item) => (
-              <div key={item.id} className="grid grid-cols-1 md:grid-cols-[100px_300px_200px] gap-x-4 gap-y-1 items-center">
-                <label
-                  htmlFor={item.id}
-                  className="block text-sm font-medium text-slate-700 mb-1 md:hidden" // Show on mobile
-                >
-                  {item.description || `Code ${item.code}`}
-                </label>
+              <div key={item.id} className="grid grid-cols-[100px_300px_200px] gap-x-4 items-center py-2 border-b border-slate-100">
+                {/* Column 1: Code */}
+                <span className="text-sm text-slate-700">{item.code}</span>
+                
+                {/* Column 2: Description */}
+                <span className="text-sm text-slate-700">{item.description}</span>
+                
+                {/* Column 3: Value Input */}
                 <input
                   type="text"
                   inputMode="decimal"
@@ -336,7 +337,7 @@ export default function LiquidityRatiosPage() {
                   value={formatNumberWithCommas(item.value)}
                   onChange={(e) => handleValueChange(item.id, e.target.value)}
                   onPaste={(e) => handlePasteValues(e, item.id)}
-                  className="p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 sm:text-sm w-full text-slate-900 text-right tabular-nums"
+                  className="p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-900 text-right tabular-nums w-full"
                   placeholder="Enter value"
                 />
               </div>
