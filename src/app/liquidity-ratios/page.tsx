@@ -21,7 +21,7 @@ interface User {
 const initialItems: LiquidityItem[] = [
   { id: 'code_1010', code: '1010', description: 'Cash', value: '' },
   { id: 'code_1040', code: '1040', description: 'MLP Deposits HQLA1 Govt Bonds', value: '' },
-  { id: 'code_1060', code: '1060', description: 'SDebt Security Instruments', value: '' },
+  { id: 'code_1060', code: '1060', description: 'MLP Deposits HQLA2', value: '' },
   { id: 'code_1078', code: '1078', description: 'MLP Deposits HQLA1 CMB/MBS', value: '' },
   { id: 'code_1079', code: '1079', description: 'MLP Deposits HQLA2B', value: '' },
   { id: 'code_1100', code: '1100', description: 'Total Assets', value: '' },
