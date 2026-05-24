@@ -204,7 +204,8 @@ export default function ForecastResultsPage() {
 
     const formatCurrency = (value: number | null | undefined) => {
         if (value === null || value === undefined) return 'N/A';
-        return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const sign = value < 0 ? '-' : '';
+        return `${sign}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
     };
 
     const handleDownloadCSV = () => {
