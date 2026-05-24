@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import DataSummaryCard from '../../components/DataSummaryCard';
 
 // Reusing styles from dashboard for consistency (can be refactored later)
 const styles = { 
@@ -201,7 +202,9 @@ export default function HistoryPage() {
                 </div>
             </div>
             <h1 style={styles.heading}>File Upload History</h1>
-            
+
+            <DataSummaryCard accessToken={accessToken} />
+
             {error && <p style={{...styles.errorMessage}}>{error}</p>}
 
             <button 

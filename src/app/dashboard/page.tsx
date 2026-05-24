@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, ChangeEvent, FormEvent, useEffect } from 'react';
+import { useState, ChangeEvent, FormEvent, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation'; // Import usePathname
 import Link from 'next/link'; // Import Link for navigation
+import DataSummaryCard, { DataSummary } from '../../components/DataSummaryCard';
 
 // Simple styling for now, can be replaced with Tailwind/CSS Modules
 const styles = {
@@ -161,6 +162,15 @@ export default function DashboardPage() {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+    // Latest CAD reporting date pulled from /files/data-summary, used by the
+    // "Use Latest" button next to the Anchor Date input.
+    const [latestCadDate, setLatestCadDate] = useState<string | null>(null);
+    // Bumping this forces DataSummaryCard to refetch — used after uploads.
+    const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
+    const handleSummaryLoaded = useCallback((s: DataSummary) => {
+        setLatestCadDate(s.cad?.latest ?? null);
+    }, []);
+
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (!token) {
@@ -249,6 +259,7 @@ export default function DashboardPage() {
             setFileUploadMessage(`File '${selectedFile.name}' (${dailyOperationCurrency}) uploaded successfully. Processing queued. File ID: ${data.file_id}`);
             setSelectedFile(null); // Clear selection
             setDailyOperationCurrency(''); // Reset currency dropdown
+            setSummaryRefreshKey((k: number) => k + 1); // refresh the data summary card
             const fileInput = document.getElementById('fileUpload') as HTMLInputElement;
             if(fileInput) fileInput.value = ''; // Reset file input
         } catch (err: unknown) {
@@ -333,6 +344,7 @@ export default function DashboardPage() {
         setBulkUploadMessage(`Bulk upload finished. Successful: ${successCount}, Failed: ${errorCount}.`);
         setBulkUploadProgress(null);
         setIsBulkUploading(false);
+        if (successCount > 0) setSummaryRefreshKey((k: number) => k + 1);
         // Clear file input after processing
         const bulkFileInput = document.getElementById('bulkFileUpload') as HTMLInputElement;
         if(bulkFileInput) bulkFileInput.value = '';
@@ -418,6 +430,12 @@ export default function DashboardPage() {
 
             <h2 className="text-xl font-semibold mb-6 text-slate-800">Forecasting Dashboard</h2>
             <p style={{ marginBottom: '1.5rem', color: '#4A5568' }}>Welcome, {currentUser.email}! Manage your CAD cash flow forecasts here.</p>
+
+            <DataSummaryCard
+                accessToken={accessToken}
+                refreshKey={summaryRefreshKey}
+                onLoaded={handleSummaryLoaded}
+            />
 
             {/* Initial Bulk Upload Section */}
             <div style={styles.section}>
@@ -528,14 +546,43 @@ export default function DashboardPage() {
                 <h2 style={styles.sectionTitle}>Start New CAD Forecast</h2> {/* Kept a sub-heading for clarity */}
                 <form onSubmit={handleStartForecast}>
                     <div style={styles.formGroup}>
-                        <label htmlFor="anchorDate" style={styles.label}>Forecast Anchor Date (Optional):</label>
-                        <input
-                            type="date"
-                            id="anchorDate"
-                            value={anchorDate}
-                            onChange={(e) => setAnchorDate(e.target.value)}
-                            style={styles.input}
-                        />
+                        <label htmlFor="anchorDate" style={styles.label}>
+                            Forecast Anchor Date{latestCadDate ? '' : ' (Optional)'}:
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+                            <input
+                                type="date"
+                                id="anchorDate"
+                                value={anchorDate}
+                                max={latestCadDate ?? undefined}
+                                onChange={(e) => setAnchorDate(e.target.value)}
+                                style={{ ...styles.input, flex: 1 }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => latestCadDate && setAnchorDate(latestCadDate)}
+                                disabled={!latestCadDate}
+                                title={latestCadDate ? `Set to latest CAD date (${latestCadDate})` : 'No CAD data yet'}
+                                style={{
+                                    padding: '0 1rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid #D1D5DB',
+                                    backgroundColor: latestCadDate ? 'white' : '#F1F5F9',
+                                    color: latestCadDate ? '#2A4365' : '#A0AEC0',
+                                    cursor: latestCadDate ? 'pointer' : 'not-allowed',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 500,
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                Use Latest CAD
+                            </button>
+                        </div>
+                        {latestCadDate && (
+                            <p style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: '#4A5568' }}>
+                                Latest CAD data: {latestCadDate}
+                            </p>
+                        )}
                     </div>
                     {/* Training Window Days (Optional) */}
                     {/* Horizon Days (Optional) */}                    
