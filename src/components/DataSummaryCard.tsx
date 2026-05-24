@@ -1,6 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+// "YYYY-MM-DD" -> "YYYY-MM-DD Mon" (local time, avoids UTC-shift surprises).
+function formatWithWeekday(iso: string): string {
+    const parts = iso.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(Number.isNaN)) return iso;
+    const [y, m, d] = parts;
+    const dt = new Date(y, m - 1, d);
+    const wd = dt.toLocaleDateString('en-US', { weekday: 'short' });
+    return `${iso} ${wd}`;
+}
 
 export interface CurrencyDataSummary {
     earliest: string;
@@ -72,6 +82,52 @@ const styles = {
         fontSize: '0.8rem',
         color: '#C53030',
     },
+    missingToggle: {
+        marginTop: '0.4rem',
+        fontSize: '0.8rem',
+        color: '#C53030',
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        textAlign: 'left' as const,
+        font: 'inherit',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.25rem',
+    },
+    missingBox: {
+        marginTop: '0.5rem',
+        padding: '0.6rem 0.75rem',
+        border: '1px solid #FCA5A5',
+        borderRadius: '6px',
+        backgroundColor: '#FEF2F2',
+        position: 'relative' as const,
+    },
+    missingPre: {
+        margin: 0,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        fontSize: '0.75rem',
+        lineHeight: 1.5,
+        color: '#7F1D1D',
+        whiteSpace: 'pre' as const,
+        maxHeight: '12rem',
+        overflowY: 'auto' as const,
+        userSelect: 'text' as const,
+    },
+    copyButton: {
+        position: 'absolute' as const,
+        top: '0.35rem',
+        right: '0.35rem',
+        padding: '0.2rem 0.55rem',
+        fontSize: '0.7rem',
+        fontWeight: 500,
+        border: '1px solid #FCA5A5',
+        borderRadius: '4px',
+        backgroundColor: 'white',
+        color: '#C53030',
+        cursor: 'pointer',
+    },
     missingNone: {
         marginTop: '0.4rem',
         fontSize: '0.8rem',
@@ -88,6 +144,14 @@ const styles = {
 };
 
 function CurrencyCell({ label, data }: { label: string; data: CurrencyDataSummary | null }) {
+    const [expanded, setExpanded] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const missingText = useMemo(() => {
+        if (!data) return '';
+        return data.missing_dates.map(formatWithWeekday).join('\n');
+    }, [data]);
+
     if (!data) {
         return (
             <div style={styles.cell}>
@@ -96,6 +160,20 @@ function CurrencyCell({ label, data }: { label: string; data: CurrencyDataSummar
             </div>
         );
     }
+
+    const truncated = data.missing_count > data.missing_dates.length;
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(missingText);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        } catch {
+            // Clipboard might be unavailable (insecure context); the user can
+            // still select the text manually.
+        }
+    };
+
     return (
         <div style={styles.cell}>
             <p style={styles.cellTitle}>{label}</p>
@@ -106,12 +184,35 @@ function CurrencyCell({ label, data }: { label: string; data: CurrencyDataSummar
                 {data.record_count} records over {data.expected_business_days} business days
             </div>
             {data.missing_count > 0 ? (
-                <div
-                    style={styles.missing}
-                    title={data.missing_dates.length ? `First missing dates: ${data.missing_dates.join(', ')}${data.missing_count > data.missing_dates.length ? '...' : ''}` : undefined}
-                >
-                    ⚠ Missing {data.missing_count} business day{data.missing_count === 1 ? '' : 's'}
-                </div>
+                <>
+                    <button
+                        type="button"
+                        style={styles.missingToggle}
+                        onClick={() => setExpanded((v: boolean) => !v)}
+                        aria-expanded={expanded}
+                    >
+                        <span>⚠ Missing {data.missing_count} business day{data.missing_count === 1 ? '' : 's'}</span>
+                        <span>{expanded ? '▾' : '▸'}</span>
+                    </button>
+                    {expanded && (
+                        <div style={styles.missingBox}>
+                            <button
+                                type="button"
+                                style={styles.copyButton}
+                                onClick={handleCopy}
+                                title="Copy all missing dates to clipboard"
+                            >
+                                {copied ? 'Copied!' : 'Copy'}
+                            </button>
+                            <pre style={styles.missingPre}>{missingText}</pre>
+                            {truncated && (
+                                <p style={{ marginTop: '0.4rem', marginBottom: 0, fontSize: '0.7rem', color: '#9B2C2C' }}>
+                                    Showing first {data.missing_dates.length} of {data.missing_count}.
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </>
             ) : (
                 <div style={styles.missingNone}>✓ No missing business days</div>
             )}
