@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { authFetch } from '../../lib/api';
 // Import Chart components
 import { Line } from 'react-chartjs-2';
 import {
@@ -85,7 +86,7 @@ interface UsdRechartDataPoint {
 }
 
 // Function to fetch all pages of USD Summary data
-async function fetchPaginatedUsdSummary(token: string, apiBaseUrl: string): Promise<UsdSummaryItem[]> {
+async function fetchPaginatedUsdSummary(): Promise<UsdSummaryItem[]> {
     let allFetchedItems: UsdSummaryItem[] = [];
     let pageToFetch = 0;
     let moreDataExists = true;
@@ -95,9 +96,7 @@ async function fetchPaginatedUsdSummary(token: string, apiBaseUrl: string): Prom
     while (moreDataExists) {
         const skip = pageToFetch * ITEMS_PER_PAGE;
         try {
-            const response = await fetch(`${apiBaseUrl}/summary-output/usd?skip=${skip}&limit=${ITEMS_PER_PAGE}`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const response = await authFetch(`/summary-output/usd?skip=${skip}&limit=${ITEMS_PER_PAGE}`);
 
             if (!response.ok) {
                 let errorDetail = `Failed on page ${pageToFetch}. Status: ${response.status}`;
@@ -142,22 +141,20 @@ export default function ReportPage() {
             return;
         }
 
-        const fetchAllReportData = async (token: string) => {
+        const fetchAllReportData = async () => {
             setIsLoading(true);
             setError(null);
-            const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-            const headers = { 'Authorization': `Bearer ${token}` };
 
             try {
                 // Fetch first 3 items concurrently
                 const firstThreePromises = Promise.allSettled([
-                    fetch(`${apiBaseUrl}/files/forecast/latest?currency=cad`, { headers }),
-                    fetch(`${apiBaseUrl}/liquidity-ratios/latest`, { headers }),
-                    fetch(`${apiBaseUrl}/usd-exposure/latest`, { headers })
+                    authFetch('/files/forecast/latest?currency=cad'),
+                    authFetch('/liquidity-ratios/latest'),
+                    authFetch('/usd-exposure/latest')
                 ]);
 
                 // Fetch USD summary data (paginated) concurrently with the first three
-                const usdSummaryPromise = fetchPaginatedUsdSummary(token, apiBaseUrl);
+                const usdSummaryPromise = fetchPaginatedUsdSummary();
 
                 // Wait for all fetches to complete
                 const [firstThreeResults, usdSummaryResult] = await Promise.all([
@@ -247,7 +244,7 @@ export default function ReportPage() {
         };
 
         if (token) {
-            fetchAllReportData(token);
+            fetchAllReportData();
         }
     }, [router]);
 

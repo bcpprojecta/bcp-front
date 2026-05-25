@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { authFetch } from '../lib/api';
 
 // "YYYY-MM-DD" -> "YYYY-MM-DD Mon" (local time, avoids UTC-shift surprises).
 function formatWithWeekday(iso: string): string {
@@ -232,10 +233,7 @@ export default function DataSummaryCard({ accessToken, onLoaded, refreshKey }: P
             setIsLoading(true);
             setError(null);
             try {
-                const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-                const res = await fetch(`${apiBaseUrl}/files/data-summary`, {
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                });
+                const res = await authFetch('/files/data-summary');
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({ detail: 'Failed to load data summary.' }));
                     throw new Error(err.detail || 'Failed to load data summary.');

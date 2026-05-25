@@ -3,6 +3,7 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminNavbar from '@/components/AdminNavbar'; // Assuming you have or will create this
+import { authFetch, clearTokens } from '../../../lib/api';
 
 // A simple, clean font stack
 const fontStack = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif";
@@ -34,16 +35,9 @@ export default function CreateUserPage() {
             }
 
             try {
-                const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-                const response = await fetch(`${apiBaseUrl}/auth/users/me`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                });
-
+                const response = await authFetch('/auth/users/me');
                 if (!response.ok) {
-                    localStorage.removeItem('accessToken');
-                    router.push('/login');
+                    // authFetch already handled the redirect on 401.
                     return;
                 }
 
@@ -56,7 +50,7 @@ export default function CreateUserPage() {
                 }
             } catch (err) {
                 console.error("Error verifying admin status:", err);
-                localStorage.removeItem('accessToken');
+                clearTokens();
                 router.push('/login');
             }
         };
@@ -79,12 +73,10 @@ export default function CreateUserPage() {
         }
 
         try {
-            const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-            const response = await fetch(`${apiBaseUrl}/admin/create-user`, {
+            const response = await authFetch('/admin/create-user', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
                 },
                 body: JSON.stringify({
                     email: email,

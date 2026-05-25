@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent, ClipboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { authFetch, clearTokens } from '../../lib/api';
 
 // Define the structure for each item
 interface UsdExposureItem {
@@ -71,15 +72,9 @@ export default function UsdExposurePage() {
       setAccessToken(tokenFromStorage); // Store token
       const fetchUser = async () => {
         try {
-          const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-          const response = await fetch(`${apiBaseUrl}/auth/users/me`, {
-            headers: {
-              'Authorization': `Bearer ${tokenFromStorage}`,
-            },
-          });
+          const response = await authFetch('/auth/users/me');
           if (!response.ok) {
-            localStorage.removeItem('accessToken');
-            router.push('/login');
+            // authFetch already cleared tokens / redirected on 401.
             console.error('Session expired or invalid. Please login again.');
             return;
           }
@@ -87,8 +82,6 @@ export default function UsdExposurePage() {
           setCurrentUser(userData);
         } catch (error) {
           console.error("Error fetching user:", error);
-          localStorage.removeItem('accessToken');
-          router.push('/login');
         }
       };
       fetchUser();
@@ -96,7 +89,7 @@ export default function UsdExposurePage() {
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
+    clearTokens();
     setCurrentUser(null);
     router.push('/login');
   };
@@ -208,12 +201,10 @@ export default function UsdExposurePage() {
       if (!accessToken) {
         throw new Error("Access token not available. Please login again.");
       }
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${apiBaseUrl}/usd-exposure/`, { // Note the trailing slash
+      const response = await authFetch('/usd-exposure/', { // Note the trailing slash
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify(payloadForApi),
       });

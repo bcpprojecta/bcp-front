@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { authFetch, clearTokens } from '../../lib/api';
 
 // Define the structure for each liquidity item
 interface LiquidityItem {
@@ -75,25 +76,16 @@ export default function LiquidityRatiosPage() {
       setAccessToken(tokenFromStorage); // Store token
       const fetchUser = async () => {
         try {
-          const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-          const response = await fetch(`${apiBaseUrl}/auth/users/me`, {
-            headers: {
-              'Authorization': `Bearer ${tokenFromStorage}`,
-            },
-          });
+          const response = await authFetch('/auth/users/me');
           if (!response.ok) {
-            localStorage.removeItem('accessToken');
-            router.push('/login');
-            // Optionally, throw an error or set an error state
+            // authFetch already cleared tokens / redirected on 401.
             console.error('Session expired or invalid. Please login again.');
-            return; // Stop further execution in this path
+            return;
           }
           const userData: User = await response.json();
           setCurrentUser(userData);
         } catch (error) {
           console.error("Error fetching user:", error);
-          localStorage.removeItem('accessToken');
-          router.push('/login');
         }
       };
       fetchUser();
@@ -101,7 +93,7 @@ export default function LiquidityRatiosPage() {
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
+    clearTokens();
     setCurrentUser(null);
     router.push('/login');
   };
@@ -233,12 +225,10 @@ export default function LiquidityRatiosPage() {
       if (!accessToken) {
         throw new Error("Access token not available. Please login again.");
       }
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${apiBaseUrl}/liquidity-ratios/`, { // Note the trailing slash if your FastAPI router needs it
+      const response = await authFetch('/liquidity-ratios/', { // Note the trailing slash if your FastAPI router needs it
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify(payloadForApi),
       });

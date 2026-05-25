@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { clearTokens } from '../lib/api';
 
 const AdminNavbar = () => {
     const router = useRouter();
 
     const handleLogout = () => {
-        localStorage.removeItem('accessToken');
+        clearTokens();
         router.push('/login');
     };
 

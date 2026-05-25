@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'; // Removed Fragment
 import { useRouter } from 'next/navigation';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Import Recharts components
+import { authFetch, clearTokens } from '../../lib/api';
 
 // Define User interface
 interface User {
@@ -44,15 +45,11 @@ export default function UsdSummaryOutputPage() {
   const fetchUser = useCallback(async (token: string | null) => {
     if (!token) return false;
     try {
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-      const userResponse = await fetch(`${apiBaseUrl}/auth/users/me`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      const userResponse = await authFetch('/auth/users/me');
       if (!userResponse.ok) {
-        localStorage.removeItem('accessToken');
+        // authFetch already cleared tokens / redirected on 401.
         setAccessToken(null);
         setCurrentUser(null);
-        router.push('/login');
         throw new Error('Session expired or invalid.');
       }
       const userData: User = await userResponse.json();
@@ -68,7 +65,7 @@ export default function UsdSummaryOutputPage() {
       setIsLoadingData(false);
       return false;
     }
-  }, [router]);
+  }, []);
 
   const fetchAllSummaryData = useCallback(async (token: string | null) => {
     if (!token) return;
@@ -81,11 +78,8 @@ export default function UsdSummaryOutputPage() {
 
     try {
       while (moreDataExists) {
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
         const skip = pageToFetch * ITEMS_PER_LOAD;
-        const response = await fetch(`${apiBaseUrl}/summary-output/usd?skip=${skip}&limit=${ITEMS_PER_LOAD}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
+        const response = await authFetch(`/summary-output/usd?skip=${skip}&limit=${ITEMS_PER_LOAD}`);
 
         if (!response.ok) {
           let errorDetail = `Failed to fetch summary data (page ${pageToFetch}). Status: ${response.status}`;
@@ -241,7 +235,7 @@ export default function UsdSummaryOutputPage() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
+    clearTokens();
     setCurrentUser(null);
     setAccessToken(null);
     router.push('/login');

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Line } from 'react-chartjs-2';
+import { authFetch } from '../../../../lib/api';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -169,11 +170,7 @@ export default function ForecastResultsPage() {
                 setIsLoading(true);
                 setError(null);
                 try {
-                    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-                    
-                    const response = await fetch(`${apiBaseUrl}/files/forecast/latest?currency=${currency.toLowerCase()}`, {
-                        headers: { 'Authorization': `Bearer ${token}` },
-                    });
+                    const response = await authFetch(`/files/forecast/latest?currency=${currency.toLowerCase()}`);
 
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch forecast results.'}));

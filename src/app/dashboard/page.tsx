@@ -4,6 +4,7 @@ import { useState, ChangeEvent, FormEvent, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'; // Import usePathname
 import Link from 'next/link'; // Import Link for navigation
 import DataSummaryCard, { DataSummary } from '../../components/DataSummaryCard';
+import { authFetch, clearTokens } from '../../lib/api';
 
 // Simple styling for now, can be replaced with Tailwind/CSS Modules
 const styles = {
@@ -179,23 +180,15 @@ export default function DashboardPage() {
             setAccessToken(token);
             const fetchUser = async () => {
                 try {
-                    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-                    const response = await fetch(`${apiBaseUrl}/auth/users/me`, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                        },
-                    });
+                    const response = await authFetch('/auth/users/me');
                     if (!response.ok) {
-                        localStorage.removeItem('accessToken');
-                        router.push('/login');
+                        // authFetch already cleared tokens / redirected on 401.
                         throw new Error('Session expired or invalid. Please login again.');
                     }
                     const userData: User = await response.json();
                     setCurrentUser(userData);
                 } catch (error) {
                     console.error("Error fetching user:", error);
-                    localStorage.removeItem('accessToken'); // Clear token on error too
-                    router.push('/login');
                 }
             };
             fetchUser();
@@ -203,8 +196,8 @@ export default function DashboardPage() {
     }, [router]);
 
     const handleLogout = () => {
-        localStorage.removeItem('accessToken');
-        setCurrentUser(null); 
+        clearTokens();
+        setCurrentUser(null);
         setAccessToken(null); // Clear access token state
         router.push('/login');
     };
@@ -242,12 +235,8 @@ export default function DashboardPage() {
         }
 
         try {
-            const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-            const response = await fetch(`${apiBaseUrl}/files/upload`, {
+            const response = await authFetch('/files/upload', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                },
                 body: formData,
             });
 
@@ -313,12 +302,8 @@ export default function DashboardPage() {
             formData.append('currency', bulkCurrency); 
 
             try {
-                const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-                const response = await fetch(`${apiBaseUrl}/files/upload`, {
+                const response = await authFetch('/files/upload', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                    },
                     body: formData,
                 });
                 const data = await response.json();
@@ -376,11 +361,9 @@ export default function DashboardPage() {
         };
 
         try {
-            const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-            const response = await fetch(`${apiBaseUrl}/files/forecast/generate`, {
+            const response = await authFetch('/files/forecast/generate', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(payload),

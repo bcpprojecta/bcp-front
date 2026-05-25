@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiUrl, setTokens, clearTokens } from '../../lib/api';
 
 // A simple, clean font stack
 const fontStack = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif";
@@ -30,9 +31,8 @@ export default function LoginPage() {
         let token = null; // Variable to hold the token
 
         try {
-            // --- Step 1: Login to get token --- 
-            const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-            const loginResponse = await fetch(`${apiBaseUrl}/auth/login`, {
+            // --- Step 1: Login to get token ---
+            const loginResponse = await fetch(apiUrl('/auth/login'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -52,14 +52,14 @@ export default function LoginPage() {
 
             if (loginData.access_token) {
                 token = loginData.access_token;
-                localStorage.setItem('accessToken', token); 
+                setTokens(loginData.access_token, loginData.refresh_token);
             } else {
                 throw new Error('Access token not found in login response');
             }
 
-            // --- Step 2: Fetch user data to check role --- 
+            // --- Step 2: Fetch user data to check role ---
             if (token) {
-                const userResponse = await fetch(`${apiBaseUrl}/auth/users/me`, {
+                const userResponse = await fetch(apiUrl('/auth/users/me'), {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                     },
@@ -90,7 +90,7 @@ export default function LoginPage() {
             } else {
                 setError('An unexpected error occurred.');
             }
-            localStorage.removeItem('accessToken'); // Clear token on error
+            clearTokens(); // Clear tokens on error
             console.error("Login/User Fetch error:", err);
         } finally {
             setIsLoading(false);

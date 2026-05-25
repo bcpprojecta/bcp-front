@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminNavbar from '@/components/AdminNavbar'; // Import AdminNavbar
+import { authFetch, clearTokens } from '../../../lib/api';
 
 // Original User interface from the component
 interface User {
@@ -78,14 +79,9 @@ export default function AdminDashboardPage() {
 
             let isAdmin = false;
             try {
-                const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-                const response = await fetch(`${apiBaseUrl}/auth/users/me`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-
+                const response = await authFetch('/auth/users/me');
                 if (!response.ok) {
-                    localStorage.removeItem('accessToken');
-                    router.push('/login');
+                    // authFetch already handled the redirect on 401.
                     return;
                 }
 
@@ -101,7 +97,7 @@ export default function AdminDashboardPage() {
                 }
             } catch (error) {
                 console.error('Failed to verify admin status', error);
-                localStorage.removeItem('accessToken');
+                clearTokens();
                 router.push('/login');
                 return; // Stop further execution on error
             }
@@ -111,10 +107,7 @@ export default function AdminDashboardPage() {
                 setUsersLoading(true);
                 setUsersError(null);
                 try {
-                    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-                    const usersResponse = await fetch(`${apiBaseUrl}/admin/users`, { // New endpoint
-                        headers: { 'Authorization': `Bearer ${token}` },
-                    });
+                    const usersResponse = await authFetch('/admin/users');
 
                     if (!usersResponse.ok) {
                         const errorData = await usersResponse.json().catch(() => ({ detail: "Failed to fetch users and parse error details."}));

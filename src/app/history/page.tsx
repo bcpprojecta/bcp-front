@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import DataSummaryCard from '../../components/DataSummaryCard';
+import { authFetch, clearTokens } from '../../lib/api';
 
 // Reusing styles from dashboard for consistency (can be refactored later)
 const styles = { 
@@ -117,28 +118,21 @@ export default function HistoryPage() {
     const pathname = usePathname(); // Get current pathname
 
     // Renamed from fetchUserAndJobs to fetchUserAndFileHistory
-    const fetchUserAndFileHistory = useCallback(async (token: string) => {
+    const fetchUserAndFileHistory = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
-            const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-            
             // Fetch user info first
-            const userResponse = await fetch(`${apiBaseUrl}/auth/users/me`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const userResponse = await authFetch('/auth/users/me');
             if (!userResponse.ok) {
-                 localStorage.removeItem('accessToken');
-                 router.push('/login');
+                 // authFetch already cleared tokens / redirected on 401.
                  throw new Error('Session expired or invalid. Please login again.');
             }
             const userData: User = await userResponse.json();
             setCurrentUser(userData);
 
             // Then fetch file history - API endpoint changed
-            const historyResponse = await fetch(`${apiBaseUrl}/files/history`, { 
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
+            const historyResponse = await authFetch('/files/history');
             if (!historyResponse.ok) {
                 const errorData = await historyResponse.json().catch(() => ({detail: "Failed to fetch file history and could not parse error."}));
                 throw new Error(errorData.detail || 'Failed to fetch file upload history.');
@@ -166,12 +160,12 @@ export default function HistoryPage() {
             router.push('/login');
         } else {
             setAccessToken(token);
-            fetchUserAndFileHistory(token); // Call renamed function
+            fetchUserAndFileHistory();
         }
     }, [router, fetchUserAndFileHistory, setAccessToken]);
-    
+
     const handleLogout = () => {
-        localStorage.removeItem('accessToken');
+        clearTokens();
         setCurrentUser(null);
         setAccessToken(null);
         router.push('/login');
@@ -207,8 +201,8 @@ export default function HistoryPage() {
 
             {error && <p style={{...styles.errorMessage}}>{error}</p>}
 
-            <button 
-                onClick={() => accessToken && fetchUserAndFileHistory(accessToken)}
+            <button
+                onClick={() => fetchUserAndFileHistory()}
                 disabled={isLoading}
                 style={{
                     padding: '0.5rem 1rem',
