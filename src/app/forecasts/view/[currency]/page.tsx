@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Line } from 'react-chartjs-2';
@@ -144,7 +144,50 @@ const styles = {
         fontSize: '1.25rem',
         fontWeight: 500,
         color: '#0A2540',
-    }
+    },
+    accuracyCard: {
+        marginTop: '1.5rem',
+        padding: '1.25rem 1.5rem',
+        backgroundColor: '#F0F9FF',
+        border: '1px solid #BAE6FD',
+        borderRadius: '8px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '1rem',
+    } as React.CSSProperties,
+    accuracyMain: {
+        display: 'flex',
+        flexDirection: 'column' as const,
+    },
+    accuracyLabel: {
+        fontSize: '0.85rem',
+        color: '#0369A1',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
+        fontWeight: 600,
+    },
+    accuracyValue: {
+        fontSize: '2rem',
+        fontWeight: 700,
+        color: '#0A2540',
+        lineHeight: 1.1,
+    },
+    accuracyMeta: {
+        fontSize: '0.85rem',
+        color: '#475569',
+        textAlign: 'right' as const,
+    },
+    accuracyEmpty: {
+        marginTop: '1.5rem',
+        padding: '1rem 1.25rem',
+        backgroundColor: '#F8FAFC',
+        border: '1px dashed #CBD5E1',
+        borderRadius: '8px',
+        fontSize: '0.9rem',
+        color: '#64748B',
+        textAlign: 'center' as const,
+    } as React.CSSProperties,
 };
 
 export default function ForecastResultsPage() {
@@ -198,6 +241,31 @@ export default function ForecastResultsPage() {
             setIsLoading(false);
         }
     }, [currency, router]); // Dependency array updated to currency
+
+    const accuracyMetric = useMemo(() => {
+        const rowsWithActual = results.filter(
+            r => r["Actual Cash Balance"] != null && r["Actual Cash Balance"] !== 0
+        );
+        if (rowsWithActual.length === 0) return null;
+
+        const mape = rowsWithActual.reduce((sum, r) => {
+            const actual = r["Actual Cash Balance"] as number;
+            const forecast = r["Forecasted Cash Balance"];
+            return sum + Math.abs(actual - forecast) / Math.abs(actual);
+        }, 0) / rowsWithActual.length;
+
+        const mae = rowsWithActual.reduce((sum, r) => {
+            const actual = r["Actual Cash Balance"] as number;
+            return sum + Math.abs(actual - r["Forecasted Cash Balance"]);
+        }, 0) / rowsWithActual.length;
+
+        return {
+            accuracy: Math.max(0, (1 - mape) * 100),
+            mae,
+            sampleSize: rowsWithActual.length,
+            totalSize: results.length,
+        };
+    }, [results]);
 
     const formatCurrency = (value: number | null | undefined) => {
         if (value === null || value === undefined) return 'N/A';
@@ -338,6 +406,27 @@ export default function ForecastResultsPage() {
             
             {results.length > 0 && (
                 <>
+                    {accuracyMetric ? (
+                        <div style={styles.accuracyCard}>
+                            <div style={styles.accuracyMain}>
+                                <span style={styles.accuracyLabel}>Forecast Accuracy</span>
+                                <span style={styles.accuracyValue}>
+                                    {accuracyMetric.accuracy.toFixed(1)}%
+                                </span>
+                            </div>
+                            <div style={styles.accuracyMeta}>
+                                <div>Avg error: {formatCurrency(accuracyMetric.mae)}</div>
+                                <div>
+                                    Based on {accuracyMetric.sampleSize} of {accuracyMetric.totalSize} days with actuals
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={styles.accuracyEmpty}>
+                            Accuracy will appear once actual cash balances are available for forecasted dates.
+                        </div>
+                    )}
+
                     <div style={styles.chartContainer}>
                         <Line data={chartData} options={chartOptions} />
                     </div>
